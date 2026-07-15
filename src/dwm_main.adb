@@ -25,6 +25,7 @@ package body Dwm_Main is
    use type Xlib_Thin.C_ULong;
    use type Xlib_Thin.C_UInt;
    use type System.Address;
+   use type Xlib_Thin.Display;
    use type Interfaces.C.Strings.chars_ptr;
    use type Drw.Fnt_Access;
    use type Dwm_Types.Client_Access;
@@ -136,7 +137,7 @@ package body Dwm_Main is
       end if;
 
       Dwm_State.Dpy := Xlib_Thin.XOpenDisplay (Interfaces.C.Strings.Null_Ptr);
-      if Dwm_State.Dpy = System.Null_Address then
+      if Dwm_State.Dpy = null then
          Util.Die ("dwm: cannot open display");
       end if;
       Check_Other_Wm;

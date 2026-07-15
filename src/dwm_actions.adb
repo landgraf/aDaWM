@@ -17,7 +17,7 @@ package body Dwm_Actions is
    use type Xlib_Thin.C_UInt;
    use type Xlib_Thin.C_Mask;
    use type Xlib_Thin.XID;
-   use type System.Address;
+   use type Xlib_Thin.Display;
    use type Dwm_Types.Client_Access;
    use type Dwm_Types.Monitor_Access;
    use type Dwm_Types.Layout_Const_Access;
@@ -358,7 +358,7 @@ package body Dwm_Actions is
       end if;
       Pid := C_Fork;
       if Pid = 0 then
-         if Dwm_State.Dpy /= System.Null_Address then
+         if Dwm_State.Dpy /= null then
             Ignore := C_Close (Xlib_Thin.XConnectionNumber (Dwm_State.Dpy));
          end if;
          Ignore := C_Setsid;

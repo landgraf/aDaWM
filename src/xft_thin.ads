@@ -6,7 +6,9 @@ with Xlib_Thin;
 --  Thin hand-written Ada binding to the Xft/fontconfig surface drw.c uses
 --  (font loading with fallback matching, color allocation, UTF-8 text
 --  drawing/measuring). FcPattern/FcCharSet/FcConfig/XftDraw are opaque to
---  dwm and are only ever passed around, so they stay as System.Address.
+--  dwm and are only ever passed around and null-checked, so each gets
+--  its own access-to-null-record type (see Xlib_Thin.Display) instead
+--  of a shared System.Address subtype.
 package Xft_Thin is
 
    subtype C_Int    is Interfaces.C.int;
@@ -15,10 +17,17 @@ package Xft_Thin is
    subtype C_UShort is Interfaces.C.unsigned_short;
    subtype C_UInt32 is Interfaces.C.unsigned;
 
-   subtype FcPattern is System.Address;
-   subtype FcCharSet is System.Address;
-   subtype FcConfig  is System.Address;
-   subtype XftDraw   is System.Address;
+   type FcPattern_Object is limited null record;
+   type FcPattern is access all FcPattern_Object;
+
+   type FcCharSet_Object is limited null record;
+   type FcCharSet is access all FcCharSet_Object;
+
+   type FcConfig_Object is limited null record;
+   type FcConfig is access all FcConfig_Object;
+
+   type XftDraw_Object is limited null record;
+   type XftDraw is access all XftDraw_Object;
 
    subtype FcChar8  is C_UChar;
    subtype FcChar32 is C_UInt32;
@@ -39,8 +48,8 @@ package Xft_Thin is
       Descent           : C_Int := 0;
       Height            : C_Int := 0;
       Max_Advance_Width : C_Int := 0;
-      Charset           : FcCharSet := System.Null_Address;
-      Pattern           : FcPattern := System.Null_Address;
+      Charset           : FcCharSet := null;
+      Pattern           : FcPattern := null;
    end record
      with Convention => C;
    type XftFont_Access is access all XftFont;

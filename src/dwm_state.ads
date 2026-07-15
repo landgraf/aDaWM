@@ -1,4 +1,3 @@
-with System;
 with Drw;
 with Dwm_Types;
 with Xlib_Thin;
@@ -46,7 +45,7 @@ package Dwm_State is
    Keys    : Dwm_Types.Key_Array_Access := null;
    Buttons : Dwm_Types.Button_Array_Access := null;
 
-   Dpy : Xlib_Thin.Display := System.Null_Address;
+   Dpy : Xlib_Thin.Display := null;
    Dc  : Drw.Context_Access := null;
 
    Mons, Sel_Mon : Dwm_Types.Monitor_Access := null;

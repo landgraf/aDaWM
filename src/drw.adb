@@ -1,7 +1,6 @@
 with Ada.Unchecked_Deallocation;
 with Interfaces;
 with Interfaces.C.Strings;
-with System;
 with Util;
 
 package body Drw is
@@ -9,7 +8,8 @@ package body Drw is
    use type Xlib_Thin.C_Int;
    use type Xlib_Thin.XID;
    use type Xft_Thin.XftFont_Access;
-   use type System.Address;
+   use type Xft_Thin.FcPattern;
+   use type Xft_Thin.XftDraw;
    use type Interfaces.Unsigned_32;
    use type Dwm_Types.Color_Scheme_Access;
 
@@ -100,7 +100,7 @@ package body Drw is
       D.Drawable := Xlib_Thin.XCreatePixmap
         (Disp, Xlib_Thin.Drawable (Win), Xlib_Thin.C_UInt (W), Xlib_Thin.C_UInt (H),
          Xlib_Thin.C_UInt (Xlib_Thin.XDefaultDepth (Disp, Screen)));
-      D.Gc := Xlib_Thin.XCreateGC (Disp, D.Drawable, 0, System.Null_Address);
+      D.Gc := Xlib_Thin.XCreateGC (Disp, D.Drawable, 0, null);
       Ignore := Xlib_Thin.XSetLineAttributes
         (Disp, D.Gc, 1, Xlib_Thin.LineSolid, Xlib_Thin.CapButt, Xlib_Thin.JoinMiter);
       return D;
@@ -151,7 +151,7 @@ package body Drw is
          return null;
       end if;
       for I in reverse Fonts'Range loop
-         Cur := Xfont_Create (D, Fonts (I).all, System.Null_Address);
+         Cur := Xfont_Create (D, Fonts (I).all, null);
          if Cur /= null then
             Cur.Next := Ret;
             Ret := Cur;
@@ -311,7 +311,7 @@ package body Drw is
       Render : constant Boolean := X /= 0 or else Y /= 0 or else W /= 0 or else H /= 0;
       Cur_X  : Integer := X;
       Cur_W  : Natural := W;
-      Draw   : Xft_Thin.XftDraw := System.Null_Address;
+      Draw   : Xft_Thin.XftDraw := null;
       Usedfont, Curfont, Nextfont : Fnt_Access;
       Overflow : Boolean := False;
       Ignore   : Xlib_Thin.C_Int;
@@ -475,7 +475,7 @@ package body Drw is
                      begin
                         Bool_Ignore := Xft_Thin.FcCharSetAddChar
                           (Fccharset, Xft_Thin.FcChar32 (Codepoint));
-                        if D.Fonts.Pattern = System.Null_Address then
+                        if D.Fonts.Pattern = null then
                            Util.Die ("the first font in the cache must be loaded from a font string.");
                         end if;
                         Fcpattern := Xft_Thin.FcPatternDuplicate (D.Fonts.Pattern);
@@ -484,13 +484,13 @@ package body Drw is
                         Bool_Ignore := Xft_Thin.FcPatternAddBool
                           (Fcpattern, Xft_Thin.FC_SCALABLE, Xft_Thin.FcTrue);
                         Bool_Ignore := Xft_Thin.FcConfigSubstitute
-                          (System.Null_Address, Fcpattern, Xft_Thin.FcMatchPattern);
+                          (null, Fcpattern, Xft_Thin.FcMatchPattern);
                         Xft_Thin.FcDefaultSubstitute (Fcpattern);
                         Match := Xft_Thin.XftFontMatch (D.Disp, D.Screen, Fcpattern, Result'Access);
                         Xft_Thin.FcCharSetDestroy (Fccharset);
                         Xft_Thin.FcPatternDestroy (Fcpattern);
 
-                        if Match /= System.Null_Address then
+                        if Match /= null then
                            Usedfont := Xfont_Create (D, "", Match);
                            if Usedfont /= null
                              and then Xft_Thin.XftCharExists
@@ -520,7 +520,7 @@ package body Drw is
          end;
       end loop Outer_Loop;
 
-      if Draw /= System.Null_Address then
+      if Draw /= null then
          Xft_Thin.XftDrawDestroy (Draw);
       end if;
 
@@ -571,7 +571,7 @@ package body Drw is
      (D : Context_Access; Fontname : String; Fontpattern : Xft_Thin.FcPattern) return Fnt_Access
    is
       Xfont   : Xft_Thin.XftFont_Access := null;
-      Pattern : Xft_Thin.FcPattern := System.Null_Address;
+      Pattern : Xft_Thin.FcPattern := null;
       Font    : Fnt_Access;
    begin
       if Fontname'Length > 0 then
@@ -584,14 +584,14 @@ package body Drw is
                return null;
             end if;
             Pattern := Xft_Thin.FcNameParse (C_Name);
-            if Pattern = System.Null_Address then
+            if Pattern = null then
                Xft_Thin.XftFontClose (D.Disp, Xfont);
                Interfaces.C.Strings.Free (C_Name);
                return null;
             end if;
             Interfaces.C.Strings.Free (C_Name);
          end;
-      elsif Fontpattern /= System.Null_Address then
+      elsif Fontpattern /= null then
          Xfont := Xft_Thin.XftFontOpenPattern (D.Disp, Fontpattern);
          if Xfont = null then
             return null;
@@ -613,7 +613,7 @@ package body Drw is
       if Font = null then
          return;
       end if;
-      if Font.Pattern /= System.Null_Address then
+      if Font.Pattern /= null then
          Xft_Thin.FcPatternDestroy (Font.Pattern);
       end if;
       Xft_Thin.XftFontClose (Font.Disp, Font.Xfont);

@@ -25,14 +25,26 @@ package Xlib_Thin is
    subtype C_UShort is Interfaces.C.unsigned_short;
 
    --------------------------------------------------------------------
-   --  Opaque pointer aliases (Display, GC, Visual, Screen, XftDraw... --
-   --  are never dereferenced from Ada, only passed around)           --
+   --  Opaque pointer types (Display, GC, Visual, Screen are never     --
+   --  dereferenced from Ada, only passed around and null-checked).   --
+   --  Each is a distinct access-to-null-record type rather than a    --
+   --  System.Address subtype: same machine representation (a plain   --
+   --  pointer) for FFI purposes, but the compiler now rejects        --
+   --  passing e.g. a GC where a Display is expected, and "null"      --
+   --  replaces System.Null_Address for comparisons.                  --
    --------------------------------------------------------------------
 
-   subtype Display is System.Address;
-   subtype GC      is System.Address;
-   subtype Visual  is System.Address;
-   subtype Screen  is System.Address;
+   type Display_Object is limited null record;
+   type Display is access all Display_Object;
+
+   type GC_Object is limited null record;
+   type GC is access all GC_Object;
+
+   type Visual_Object is limited null record;
+   type Visual is access all Visual_Object;
+
+   type Screen_Object is limited null record;
+   type Screen is access all Screen_Object;
 
    --------------------------------------------------------------------
    --  Resource IDs: all XID (unsigned long) in C, freely             --
@@ -238,7 +250,7 @@ package Xlib_Thin is
       Width, Height        : C_Int := 0;
       Border_Width         : C_Int := 0;
       Depth                : C_Int := 0;
-      Vis                  : Visual := System.Null_Address;
+      Vis                  : Visual := null;
       Root                 : Window := None;
       Class                : C_Int := 0;
       Bit_Gravity          : C_Int := 0;
@@ -254,7 +266,7 @@ package Xlib_Thin is
       Your_Event_Mask      : C_Mask := 0;
       Do_Not_Propagate_Mask : C_Mask := 0;
       Override_Redirect    : C_Int := 0;
-      Scr                  : Screen := System.Null_Address;
+      Scr                  : Screen := null;
    end record
      with Convention => C;
 
@@ -321,7 +333,7 @@ package Xlib_Thin is
    --  XErrorEvent: used by the error-handler callback
    type XErrorEvent is record
       Event_Type    : C_Int := 0;
-      Disp          : Display := System.Null_Address;
+      Disp          : Display := null;
       Resourceid    : XID := 0;
       Serial        : C_ULong := 0;
       Error_Code    : C_UChar := 0;
@@ -354,7 +366,7 @@ package Xlib_Thin is
       Event_Type : C_Int := 0;
       Serial     : C_ULong := 0;
       Send_Event : C_Int := 0;
-      Disp       : Display := System.Null_Address;
+      Disp       : Display := null;
       Win        : Window := None;
    end record
      with Convention => C;
@@ -363,7 +375,7 @@ package Xlib_Thin is
       Event_Type  : C_Int := 0;
       Serial      : C_ULong := 0;
       Send_Event  : C_Int := 0;
-      Disp        : Display := System.Null_Address;
+      Disp        : Display := null;
       Win         : Window := None;
       Root        : Window := None;
       Subwindow   : Window := None;
@@ -380,7 +392,7 @@ package Xlib_Thin is
       Event_Type  : C_Int := 0;
       Serial      : C_ULong := 0;
       Send_Event  : C_Int := 0;
-      Disp        : Display := System.Null_Address;
+      Disp        : Display := null;
       Win         : Window := None;
       Root        : Window := None;
       Subwindow   : Window := None;
@@ -397,7 +409,7 @@ package Xlib_Thin is
       Event_Type  : C_Int := 0;
       Serial      : C_ULong := 0;
       Send_Event  : C_Int := 0;
-      Disp        : Display := System.Null_Address;
+      Disp        : Display := null;
       Win         : Window := None;
       Root        : Window := None;
       Subwindow   : Window := None;
@@ -414,7 +426,7 @@ package Xlib_Thin is
       Event_Type  : C_Int := 0;
       Serial      : C_ULong := 0;
       Send_Event  : C_Int := 0;
-      Disp        : Display := System.Null_Address;
+      Disp        : Display := null;
       Win         : Window := None;
       Root        : Window := None;
       Subwindow   : Window := None;
@@ -433,7 +445,7 @@ package Xlib_Thin is
       Event_Type : C_Int := 0;
       Serial     : C_ULong := 0;
       Send_Event : C_Int := 0;
-      Disp       : Display := System.Null_Address;
+      Disp       : Display := null;
       Win        : Window := None;
       Mode       : C_Int := 0;
       Detail     : C_Int := 0;
@@ -444,7 +456,7 @@ package Xlib_Thin is
       Event_Type : C_Int := 0;
       Serial     : C_ULong := 0;
       Send_Event : C_Int := 0;
-      Disp       : Display := System.Null_Address;
+      Disp       : Display := null;
       Win        : Window := None;
       X, Y       : C_Int := 0;
       Width, Height : C_Int := 0;
@@ -456,7 +468,7 @@ package Xlib_Thin is
       Event_Type : C_Int := 0;
       Serial     : C_ULong := 0;
       Send_Event : C_Int := 0;
-      Disp       : Display := System.Null_Address;
+      Disp       : Display := null;
       Event      : Window := None;
       Win        : Window := None;
    end record
@@ -466,7 +478,7 @@ package Xlib_Thin is
       Event_Type      : C_Int := 0;
       Serial          : C_ULong := 0;
       Send_Event      : C_Int := 0;
-      Disp            : Display := System.Null_Address;
+      Disp            : Display := null;
       Event           : Window := None;
       Win             : Window := None;
       From_Configure  : C_Int := 0;
@@ -477,7 +489,7 @@ package Xlib_Thin is
       Event_Type : C_Int := 0;
       Serial     : C_ULong := 0;
       Send_Event : C_Int := 0;
-      Disp       : Display := System.Null_Address;
+      Disp       : Display := null;
       Parent     : Window := None;
       Win        : Window := None;
    end record
@@ -487,7 +499,7 @@ package Xlib_Thin is
       Event_Type       : C_Int := 0;
       Serial           : C_ULong := 0;
       Send_Event       : C_Int := 0;
-      Disp             : Display := System.Null_Address;
+      Disp             : Display := null;
       Event            : Window := None;
       Win              : Window := None;
       X, Y             : C_Int := 0;
@@ -502,7 +514,7 @@ package Xlib_Thin is
       Event_Type    : C_Int := 0;
       Serial        : C_ULong := 0;
       Send_Event    : C_Int := 0;
-      Disp          : Display := System.Null_Address;
+      Disp          : Display := null;
       Parent        : Window := None;
       Win           : Window := None;
       X, Y          : C_Int := 0;
@@ -518,7 +530,7 @@ package Xlib_Thin is
       Event_Type : C_Int := 0;
       Serial     : C_ULong := 0;
       Send_Event : C_Int := 0;
-      Disp       : Display := System.Null_Address;
+      Disp       : Display := null;
       Win        : Window := None;
       Prop_Atom  : Atom := None;
       Evt_Time   : Time_T := 0;
@@ -537,7 +549,7 @@ package Xlib_Thin is
       Event_Type   : C_Int := 0;
       Serial       : C_ULong := 0;
       Send_Event   : C_Int := 0;
-      Disp         : Display := System.Null_Address;
+      Disp         : Display := null;
       Win          : Window := None;
       Message_Type : Atom := None;
       Format       : C_Int := 0;
@@ -549,7 +561,7 @@ package Xlib_Thin is
       Event_Type    : C_Int := 0;
       Serial        : C_ULong := 0;
       Send_Event    : C_Int := 0;
-      Disp          : Display := System.Null_Address;
+      Disp          : Display := null;
       Win           : Window := None;
       Request       : C_Int := 0;
       First_Keycode : C_Int := 0;
@@ -895,8 +907,14 @@ package Xlib_Thin is
    function XFreePixmap (Disp : Display; Pmap : Pixmap) return C_Int;
    pragma Import (C, XFreePixmap, "XFreePixmap");
 
+   --  XGCValues is never populated (dwm always passes Values => null,
+   --  Valuemask => 0), so it stays an opaque null-record type rather
+   --  than a fully-fielded struct like the ones dwm actually reads.
+   type XGCValues_Object is limited null record;
+   type XGCValues_Access is access all XGCValues_Object;
+
    function XCreateGC
-     (Disp : Display; D : Drawable; Valuemask : C_ULong; Values : System.Address) return GC;
+     (Disp : Display; D : Drawable; Valuemask : C_ULong; Values : XGCValues_Access) return GC;
    pragma Import (C, XCreateGC, "XCreateGC");
 
    function XFreeGC (Disp : Display; The_GC : GC) return C_Int;
