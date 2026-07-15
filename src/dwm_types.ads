@@ -97,7 +97,7 @@ package Dwm_Types is
       Instance   : access constant String := null;
       Title      : access constant String := null;
       Tags       : Tag_Mask := 0;
-      Isfloating : Boolean := False;
+      Is_Floating : Boolean := False;
       Monitor    : Integer := -1;
    end record;
 
@@ -116,15 +116,15 @@ package Dwm_Types is
       Oldx, Oldy, Oldw, Oldh : Integer := 0;
       Basew, Baseh, Incw, Inch : Integer := 0;
       Maxw, Maxh, Minw, Minh  : Integer := 0;
-      Hintsvalid  : Boolean := False;
+      Hints_Valid  : Boolean := False;
       Bw, Oldbw   : Integer := 0;
       Tags        : Tag_Mask := 0;
-      Isfixed     : Boolean := False;
-      Isfloating  : Boolean := False;
-      Isurgent    : Boolean := False;
-      Neverfocus  : Boolean := False;
-      Oldstate    : Boolean := False;
-      Isfullscreen : Boolean := False;
+      Is_Fixed     : Boolean := False;
+      Is_Floating  : Boolean := False;
+      Is_Urgent    : Boolean := False;
+      Never_Focus  : Boolean := False;
+      Old_State    : Boolean := False;
+      Is_Full_Screen : Boolean := False;
       Next        : Client_Access := null;
       Snext       : Client_Access := null;
       Mon         : Monitor_Access := null;
@@ -134,23 +134,23 @@ package Dwm_Types is
    type Tagset_Array is array (0 .. 1) of Tag_Mask;
 
    type Monitor is record
-      Ltsymbol    : Lt_Symbol_Strings.Bounded_String := Lt_Symbol_Strings.Null_Bounded_String;
+      Lt_Symbol    : Lt_Symbol_Strings.Bounded_String := Lt_Symbol_Strings.Null_Bounded_String;
       Mfact       : Float := 0.0;
       Nmaster     : Integer := 0;
       Num         : Integer := 0;
       By          : Integer := 0;
       Mx, My, Mw, Mh : Integer := 0;
       Wx, Wy, Ww, Wh : Integer := 0;
-      Seltags     : Natural range 0 .. 1 := 0;
-      Sellt       : Natural range 0 .. 1 := 0;
-      Tagset      : Tagset_Array := (others => 1);
-      Showbar     : Boolean := True;
-      Topbar      : Boolean := True;
+      Sel_Tags     : Natural range 0 .. 1 := 0;
+      Sel_Lt       : Natural range 0 .. 1 := 0;
+      Tag_Set      : Tagset_Array := (others => 1);
+      Show_Bar     : Boolean := True;
+      Top_Bar      : Boolean := True;
       Clients     : Client_Access := null;
       Sel         : Client_Access := null;
       Stack       : Client_Access := null;
       Next        : Monitor_Access := null;
-      Barwin      : Xlib_Thin.Window := Xlib_Thin.None;
+      Bar_Win      : Xlib_Thin.Window := Xlib_Thin.None;
       Lt          : Layout_Pair := (others => null);
    end record;
 
@@ -160,7 +160,7 @@ package Dwm_Types is
    --  ISVISIBLE(C) / WIDTH(X) / HEIGHT(X) macros from dwm.c, used
    --  throughout Dwm_Clients, Dwm_Layouts, Dwm_Actions and Dwm_Events.
    function Is_Visible (C : Client_Access) return Boolean is
-     ((C.Tags and C.Mon.Tagset (C.Mon.Seltags)) /= 0);
+     ((C.Tags and C.Mon.Tag_Set (C.Mon.Sel_Tags)) /= 0);
 
    function Width (C : Client_Access) return Integer is (C.W + 2 * C.Bw);
    function Height (C : Client_Access) return Integer is (C.H + 2 * C.Bw);

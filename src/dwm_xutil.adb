@@ -11,8 +11,8 @@ package body Dwm_Xutil is
    use type Xlib_Thin.XID;
    use type System.Address;
 
-   type Culong_Access is access all Xlib_Thin.C_ULong;
-   function To_Culong_Access is new Ada.Unchecked_Conversion (System.Address, Culong_Access);
+   type C_Ulong_Access is access all Xlib_Thin.C_ULong;
+   function To_C_Ulong_Access is new Ada.Unchecked_Conversion (System.Address, C_Ulong_Access);
 
    type Address_Access is access all System.Address;
    function To_Address_Access is new Ada.Unchecked_Conversion (System.Address, Address_Access);
@@ -20,7 +20,7 @@ package body Dwm_Xutil is
    function To_Chars_Ptr is new Ada.Unchecked_Conversion
      (System.Address, Interfaces.C.Strings.chars_ptr);
 
-   function Getatomprop (Win : Xlib_Thin.Window; Prop : Xlib_Thin.Atom) return Xlib_Thin.Atom is
+   function Get_Atom_Prop (Win : Xlib_Thin.Window; Prop : Xlib_Thin.Atom) return Xlib_Thin.Atom is
       Da     : aliased Xlib_Thin.Atom;
       Format : aliased Xlib_Thin.C_Int;
       Nitems, Dl : aliased Xlib_Thin.C_ULong;
@@ -34,14 +34,14 @@ package body Dwm_Xutil is
          Da'Access, Format'Access, Nitems'Access, Dl'Access, P'Access);
       if Status = Xlib_Thin.Success and then P /= System.Null_Address then
          if Nitems > 0 and then Format = 32 then
-            Result := Xlib_Thin.Atom (To_Culong_Access (P).all);
+            Result := Xlib_Thin.Atom (To_C_Ulong_Access (P).all);
          end if;
          Ignore := Xlib_Thin.XFree (P);
       end if;
       return Result;
-   end Getatomprop;
+   end Get_Atom_Prop;
 
-   function Getrootptr (X, Y : out Integer) return Boolean is
+   function Get_Root_Ptr (X, Y : out Integer) return Boolean is
       Dummy_Win : aliased Xlib_Thin.Window;
       Di1, Di2  : aliased Xlib_Thin.C_Int;
       Dui       : aliased Xlib_Thin.C_UInt;
@@ -54,9 +54,9 @@ package body Dwm_Xutil is
       X := Integer (Rx);
       Y := Integer (Ry);
       return Ok /= 0;
-   end Getrootptr;
+   end Get_Root_Ptr;
 
-   function Getstate (Win : Xlib_Thin.Window) return Long_Integer is
+   function Get_State (Win : Xlib_Thin.Window) return Long_Integer is
       Format : aliased Xlib_Thin.C_Int;
       N, Extra : aliased Xlib_Thin.C_ULong;
       Real   : aliased Xlib_Thin.Atom;
@@ -66,22 +66,22 @@ package body Dwm_Xutil is
       Ignore : Xlib_Thin.C_Int;
    begin
       Status := Xlib_Thin.XGetWindowProperty
-        (Dwm_State.Dpy, Win, Dwm_State.Wmatom (Dwm_State.WM_State), 0, 2, 0,
-         Dwm_State.Wmatom (Dwm_State.WM_State), Real'Access, Format'Access,
+        (Dwm_State.Dpy, Win, Dwm_State.Wm_Atom (Dwm_State.WM_State), 0, 2, 0,
+         Dwm_State.Wm_Atom (Dwm_State.WM_State), Real'Access, Format'Access,
          N'Access, Extra'Access, P'Access);
       if Status /= Xlib_Thin.Success then
          return -1;
       end if;
       if N /= 0 and then Format = 32 then
-         Result := Long_Integer (To_Culong_Access (P).all);
+         Result := Long_Integer (To_C_Ulong_Access (P).all);
       end if;
       if P /= System.Null_Address then
          Ignore := Xlib_Thin.XFree (P);
       end if;
       return Result;
-   end Getstate;
+   end Get_State;
 
-   function Gettextprop (Win : Xlib_Thin.Window; Prop : Xlib_Thin.Atom) return String is
+   function Get_Text_Prop (Win : Xlib_Thin.Window; Prop : Xlib_Thin.Atom) return String is
       Name : aliased Xlib_Thin.XTextProperty;
       Ok   : Xlib_Thin.C_Int;
    begin
@@ -126,6 +126,6 @@ package body Dwm_Xutil is
          Ignore := Xlib_Thin.XFree (Name.Value);
          return Result (1 .. Len);
       end;
-   end Gettextprop;
+   end Get_Text_Prop;
 
 end Dwm_Xutil;

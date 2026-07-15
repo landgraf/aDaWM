@@ -59,7 +59,7 @@ package body Dwm_Main is
    function Window_At (Base : System.Address; Index : Natural) return Xlib_Thin.Window;
 
    --  Given library-level accessibility so Cleanup can point
-   --  Selmon.Lt at it (dwm.c's local `Layout foo = {"", NULL}` works
+   --  Sel_Mon.Lt at it (dwm.c's local `Layout foo = {"", NULL}` works
    --  in C only because C never checks pointer lifetimes; the pointer
    --  is equally dangling-after-return there once cleanup() returns,
    --  it's just that nothing dereferences it afterwards. Ada's
@@ -73,18 +73,18 @@ package body Dwm_Main is
    --  Subprogram bodies (alphabetical order; -gnatyo)                --
    --------------------------------------------------------------------
 
-   procedure Checkotherwm is
+   procedure Check_Other_Wm is
       Ignore_Handler : Xlib_Thin.XErrorHandler;
       Ignore : Xlib_Thin.C_Int;
    begin
-      Dwm_State.Xerrorxlib := Xlib_Thin.XSetErrorHandler (Dwm_Clients.Xerrorstart'Access);
+      Dwm_State.X_Error_Xlib := Xlib_Thin.XSetErrorHandler (Dwm_Clients.X_Error_Start'Access);
       Ignore := Xlib_Thin.XSelectInput
         (Dwm_State.Dpy, Xlib_Thin.XDefaultRootWindow (Dwm_State.Dpy),
          Xlib_Thin.SubstructureRedirectMask);
       Ignore := Xlib_Thin.XSync (Dwm_State.Dpy, 0);
-      Ignore_Handler := Xlib_Thin.XSetErrorHandler (Dwm_Clients.Xerror'Access);
+      Ignore_Handler := Xlib_Thin.XSetErrorHandler (Dwm_Clients.X_Error'Access);
       Ignore := Xlib_Thin.XSync (Dwm_State.Dpy, 0);
-   end Checkotherwm;
+   end Check_Other_Wm;
 
    procedure Cleanup is
       A : constant Dwm_Types.Arg := (Ui => not Dwm_Types.Tag_Mask'(0), others => <>);
@@ -92,7 +92,7 @@ package body Dwm_Main is
       Ignore : Xlib_Thin.C_Int;
    begin
       Dwm_Actions.View (A);
-      Dwm_State.Selmon.Lt (Dwm_State.Selmon.Sellt) := Cleanup_Foo'Access;
+      Dwm_State.Sel_Mon.Lt (Dwm_State.Sel_Mon.Sel_Lt) := Cleanup_Foo'Access;
       M := Dwm_State.Mons;
       while M /= null loop
          while M.Stack /= null loop
@@ -102,7 +102,7 @@ package body Dwm_Main is
       end loop;
       Ignore := Xlib_Thin.XUngrabKey (Dwm_State.Dpy, Xlib_Thin.Any_Key, Xlib_Thin.AnyModifier, Dwm_State.Root);
       while Dwm_State.Mons /= null loop
-         Dwm_Monitors.Cleanupmon (Dwm_State.Mons);
+         Dwm_Monitors.Cleanup_Mon (Dwm_State.Mons);
       end loop;
       for K in Dwm_State.Cursor_Kind loop
          Drw.Cur_Free (Dwm_State.Dc, Dwm_State.Cursors (K));
@@ -110,13 +110,13 @@ package body Dwm_Main is
       for S in Dwm_Types.Scheme_Kind loop
          Drw.Scm_Free (Dwm_State.Dc, Dwm_State.Scheme (S));
       end loop;
-      Ignore := Xlib_Thin.XDestroyWindow (Dwm_State.Dpy, Dwm_State.Wmcheckwin);
+      Ignore := Xlib_Thin.XDestroyWindow (Dwm_State.Dpy, Dwm_State.Wm_Check_Win);
       Drw.Free (Dwm_State.Dc);
       Ignore := Xlib_Thin.XSync (Dwm_State.Dpy, 0);
       Ignore := Xlib_Thin.XSetInputFocus
         (Dwm_State.Dpy, Xlib_Thin.Pointer_Root, Xlib_Thin.RevertToPointerRoot, Xlib_Thin.Current_Time);
       Ignore := Xlib_Thin.XDeleteProperty
-        (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Netatom (Dwm_State.Net_Active_Window));
+        (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Net_Atom (Dwm_State.Net_Active_Window));
    end Cleanup;
 
    procedure Main is
@@ -139,7 +139,7 @@ package body Dwm_Main is
       if Dwm_State.Dpy = System.Null_Address then
          Util.Die ("dwm: cannot open display");
       end if;
-      Checkotherwm;
+      Check_Other_Wm;
       Setup;
       Scan;
       Run;
@@ -189,7 +189,7 @@ package body Dwm_Main is
               and then Xlib_Thin.XGetTransientForHint (Dwm_State.Dpy, W, D1'Access) = 0
             then
                if Wa.Map_State = Xlib_Thin.IsViewable
-                 or else Dwm_Xutil.Getstate (W) = Xlib_Thin.IconicState
+                 or else Dwm_Xutil.Get_State (W) = Xlib_Thin.IconicState
                then
                   Dwm_Clients.Manage (W, Wa);
                end if;
@@ -204,7 +204,7 @@ package body Dwm_Main is
             if Ok /= 0
               and then Xlib_Thin.XGetTransientForHint (Dwm_State.Dpy, W, D1'Access) /= 0
               and then (Wa.Map_State = Xlib_Thin.IsViewable
-                          or else Dwm_Xutil.Getstate (W) = Xlib_Thin.IconicState)
+                          or else Dwm_Xutil.Get_State (W) = Xlib_Thin.IconicState)
             then
                Dwm_Clients.Manage (W, Wa);
             end if;
@@ -258,22 +258,22 @@ package body Dwm_Main is
       Dwm_State.Keys := Dwm_Bindings.Keys'Access;
       Dwm_State.Buttons := Dwm_Bindings.Buttons'Access;
 
-      Ignore_Bool := Dwm_Monitors.Updategeom;
+      Ignore_Bool := Dwm_Monitors.Update_Geom;
 
       Utf8string := Atom ("UTF8_STRING");
-      Dwm_State.Wmatom (Dwm_State.WM_Protocols) := Atom ("WM_PROTOCOLS");
-      Dwm_State.Wmatom (Dwm_State.WM_Delete) := Atom ("WM_DELETE_WINDOW");
-      Dwm_State.Wmatom (Dwm_State.WM_State) := Atom ("WM_STATE");
-      Dwm_State.Wmatom (Dwm_State.WM_Take_Focus) := Atom ("WM_TAKE_FOCUS");
-      Dwm_State.Netatom (Dwm_State.Net_Active_Window) := Atom ("_NET_ACTIVE_WINDOW");
-      Dwm_State.Netatom (Dwm_State.Net_Supported) := Atom ("_NET_SUPPORTED");
-      Dwm_State.Netatom (Dwm_State.Net_WM_Name) := Atom ("_NET_WM_NAME");
-      Dwm_State.Netatom (Dwm_State.Net_WM_State) := Atom ("_NET_WM_STATE");
-      Dwm_State.Netatom (Dwm_State.Net_WM_Check) := Atom ("_NET_SUPPORTING_WM_CHECK");
-      Dwm_State.Netatom (Dwm_State.Net_WM_Fullscreen) := Atom ("_NET_WM_STATE_FULLSCREEN");
-      Dwm_State.Netatom (Dwm_State.Net_WM_Window_Type) := Atom ("_NET_WM_WINDOW_TYPE");
-      Dwm_State.Netatom (Dwm_State.Net_WM_Window_Type_Dialog) := Atom ("_NET_WM_WINDOW_TYPE_DIALOG");
-      Dwm_State.Netatom (Dwm_State.Net_Client_List) := Atom ("_NET_CLIENT_LIST");
+      Dwm_State.Wm_Atom (Dwm_State.WM_Protocols) := Atom ("WM_PROTOCOLS");
+      Dwm_State.Wm_Atom (Dwm_State.WM_Delete) := Atom ("WM_DELETE_WINDOW");
+      Dwm_State.Wm_Atom (Dwm_State.WM_State) := Atom ("WM_STATE");
+      Dwm_State.Wm_Atom (Dwm_State.WM_Take_Focus) := Atom ("WM_TAKE_FOCUS");
+      Dwm_State.Net_Atom (Dwm_State.Net_Active_Window) := Atom ("_NET_ACTIVE_WINDOW");
+      Dwm_State.Net_Atom (Dwm_State.Net_Supported) := Atom ("_NET_SUPPORTED");
+      Dwm_State.Net_Atom (Dwm_State.Net_WM_Name) := Atom ("_NET_WM_NAME");
+      Dwm_State.Net_Atom (Dwm_State.Net_WM_State) := Atom ("_NET_WM_STATE");
+      Dwm_State.Net_Atom (Dwm_State.Net_WM_Check) := Atom ("_NET_SUPPORTING_WM_CHECK");
+      Dwm_State.Net_Atom (Dwm_State.Net_WM_Fullscreen) := Atom ("_NET_WM_STATE_FULLSCREEN");
+      Dwm_State.Net_Atom (Dwm_State.Net_WM_Window_Type) := Atom ("_NET_WM_WINDOW_TYPE");
+      Dwm_State.Net_Atom (Dwm_State.Net_WM_Window_Type_Dialog) := Atom ("_NET_WM_WINDOW_TYPE_DIALOG");
+      Dwm_State.Net_Atom (Dwm_State.Net_Client_List) := Atom ("_NET_CLIENT_LIST");
 
       Dwm_State.Cursors (Dwm_State.Cur_Normal) := Drw.Cur_Create (Dwm_State.Dc, Xlib_Thin.XC_left_ptr);
       Dwm_State.Cursors (Dwm_State.Cur_Resize) := Drw.Cur_Create (Dwm_State.Dc, Xlib_Thin.XC_sizing);
@@ -283,27 +283,27 @@ package body Dwm_Main is
          Dwm_State.Scheme (S) := Drw.Scm_Create (Dwm_State.Dc, Config.Colors (S));
       end loop;
 
-      Dwm_Bar.Updatebars;
-      Dwm_Bar.Updatestatus;
+      Dwm_Bar.Update_Bars;
+      Dwm_Bar.Update_Status;
 
-      Dwm_State.Wmcheckwin := Xlib_Thin.XCreateSimpleWindow
+      Dwm_State.Wm_Check_Win := Xlib_Thin.XCreateSimpleWindow
         (Dwm_State.Dpy, Dwm_State.Root, 0, 0, 1, 1, 0, 0, 0);
-      Wmcheckwin_Buf := Dwm_State.Wmcheckwin;
+      Wmcheckwin_Buf := Dwm_State.Wm_Check_Win;
       Ignore := Xlib_Thin.XChangeProperty
-        (Dwm_State.Dpy, Dwm_State.Wmcheckwin, Dwm_State.Netatom (Dwm_State.Net_WM_Check), Xlib_Thin.XA_WINDOW,
+        (Dwm_State.Dpy, Dwm_State.Wm_Check_Win, Dwm_State.Net_Atom (Dwm_State.Net_WM_Check), Xlib_Thin.XA_WINDOW,
          32, Xlib_Thin.PropModeReplace, Wmcheckwin_Buf'Address, 1);
       Ignore := Xlib_Thin.XChangeProperty
-        (Dwm_State.Dpy, Dwm_State.Wmcheckwin, Dwm_State.Netatom (Dwm_State.Net_WM_Name), Utf8string, 8,
+        (Dwm_State.Dpy, Dwm_State.Wm_Check_Win, Dwm_State.Net_Atom (Dwm_State.Net_WM_Name), Utf8string, 8,
          Xlib_Thin.PropModeReplace, Dwm_Name'Address, 3);
       Ignore := Xlib_Thin.XChangeProperty
-        (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Netatom (Dwm_State.Net_WM_Check), Xlib_Thin.XA_WINDOW, 32,
+        (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Net_Atom (Dwm_State.Net_WM_Check), Xlib_Thin.XA_WINDOW, 32,
          Xlib_Thin.PropModeReplace, Wmcheckwin_Buf'Address, 1);
       Ignore := Xlib_Thin.XChangeProperty
-        (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Netatom (Dwm_State.Net_Supported), Xlib_Thin.XA_ATOM, 32,
-         Xlib_Thin.PropModeReplace, Dwm_State.Netatom (Dwm_State.Netatom'First)'Address,
-         Interfaces.C.int (Dwm_State.Netatom'Length));
+        (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Net_Atom (Dwm_State.Net_Supported), Xlib_Thin.XA_ATOM, 32,
+         Xlib_Thin.PropModeReplace, Dwm_State.Net_Atom (Dwm_State.Net_Atom'First)'Address,
+         Interfaces.C.int (Dwm_State.Net_Atom'Length));
       Ignore := Xlib_Thin.XDeleteProperty
-        (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Netatom (Dwm_State.Net_Client_List));
+        (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Net_Atom (Dwm_State.Net_Client_List));
 
       Wa.Cursor_Id := Dwm_State.Cursors (Dwm_State.Cur_Normal).Cursor;
       Wa.Event_Mask :=
@@ -313,7 +313,7 @@ package body Dwm_Main is
       Ignore := Xlib_Thin.XChangeWindowAttributes
         (Dwm_State.Dpy, Dwm_State.Root, Xlib_Thin.CWEventMask or Xlib_Thin.CWCursor, Wa'Access);
       Ignore := Xlib_Thin.XSelectInput (Dwm_State.Dpy, Dwm_State.Root, Wa.Event_Mask);
-      Dwm_Clients.Grabkeys;
+      Dwm_Clients.Grab_Keys;
       Dwm_Clients.Focus (null);
    end Setup;
 

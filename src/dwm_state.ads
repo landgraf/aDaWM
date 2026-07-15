@@ -17,7 +17,7 @@ package Dwm_State is
    Bh     : Natural := 0;
    Lrpad  : Natural := 0;
 
-   Numlockmask : Xlib_Thin.C_UInt := 0;
+   Num_Lock_Mask : Xlib_Thin.C_UInt := 0;
    Running     : Boolean := True;
 
    type Wm_Atom_Kind is (WM_Protocols, WM_Delete, WM_State, WM_Take_Focus);
@@ -26,14 +26,14 @@ package Dwm_State is
       Net_Active_Window, Net_WM_Window_Type, Net_WM_Window_Type_Dialog, Net_Client_List);
    type Cursor_Kind is (Cur_Normal, Cur_Resize, Cur_Move);
 
-   Wmatom  : array (Wm_Atom_Kind) of Xlib_Thin.Atom := (others => Xlib_Thin.None);
-   Netatom : array (Net_Atom_Kind) of Xlib_Thin.Atom := (others => Xlib_Thin.None);
+   Wm_Atom  : array (Wm_Atom_Kind) of Xlib_Thin.Atom := (others => Xlib_Thin.None);
+   Net_Atom : array (Net_Atom_Kind) of Xlib_Thin.Atom := (others => Xlib_Thin.None);
    Cursors : array (Cursor_Kind) of Drw.Cur_Access := (others => null);
    Scheme  : array (Dwm_Types.Scheme_Kind) of Dwm_Types.Color_Scheme_Access := (others => null);
 
    --  The default layout pair new monitors are created with (set once
    --  from Dwm_Bindings.Layouts by Dwm_Main.Setup before the first
-   --  call to Dwm_Monitors.Updategeom); this indirection is what lets
+   --  call to Dwm_Monitors.Update_Geom); this indirection is what lets
    --  Dwm_Monitors avoid depending on Dwm_Bindings (which itself
    --  depends, transitively, on Dwm_Monitors via Dwm_Actions).
    Default_Lt : Dwm_Types.Layout_Pair := (others => null);
@@ -49,9 +49,9 @@ package Dwm_State is
    Dpy : Xlib_Thin.Display := System.Null_Address;
    Dc  : Drw.Context_Access := null;
 
-   Mons, Selmon : Dwm_Types.Monitor_Access := null;
-   Root, Wmcheckwin : Xlib_Thin.Window := Xlib_Thin.None;
+   Mons, Sel_Mon : Dwm_Types.Monitor_Access := null;
+   Root, Wm_Check_Win : Xlib_Thin.Window := Xlib_Thin.None;
 
-   Xerrorxlib : Xlib_Thin.XErrorHandler := null;
+   X_Error_Xlib : Xlib_Thin.XErrorHandler := null;
 
 end Dwm_State;

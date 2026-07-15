@@ -127,7 +127,7 @@ package body Drw is
       Free_Cur (C);
    end Cur_Free;
 
-   procedure Font_Getexts
+   procedure Font_Get_Exts
      (Font : Fnt_Access; Txt : String; Len : Natural; W : out Natural; H : out Natural)
    is
       Ext : aliased Xft_Thin.XGlyphInfo;
@@ -141,7 +141,7 @@ package body Drw is
         (Font.Disp, Font.Xfont, Txt (Txt'First)'Address, Xlib_Thin.C_Int (Len), Ext'Access);
       W := Natural (Ext.X_Off);
       H := Font.H;
-   end Font_Getexts;
+   end Font_Get_Exts;
 
    function Fontset_Create (D : Context_Access; Fonts : Dwm_Types.Command) return Fnt_Access is
       Ret : Fnt_Access := null;
@@ -171,22 +171,22 @@ package body Drw is
       end if;
    end Fontset_Free;
 
-   function Fontset_Getwidth (D : Context_Access; Txt : String) return Natural is
+   function Fontset_Get_Width (D : Context_Access; Txt : String) return Natural is
    begin
       if D = null or else D.Fonts = null or else Txt'Length = 0 then
          return 0;
       end if;
       return Text (D, 0, 0, 0, 0, 0, Txt, 0);
-   end Fontset_Getwidth;
+   end Fontset_Get_Width;
 
-   function Fontset_Getwidth_Clamp (D : Context_Access; Txt : String; N : Natural) return Natural is
+   function Fontset_Get_Width_Clamp (D : Context_Access; Txt : String; N : Natural) return Natural is
       Tmp : Natural := 0;
    begin
       if D /= null and then D.Fonts /= null and then Txt'Length > 0 and then N > 0 then
          Tmp := Drw.Text (D, 0, 0, 0, 0, 0, Txt, N);
       end if;
       return Natural'Min (N, Tmp);
-   end Fontset_Getwidth_Clamp;
+   end Fontset_Get_Width_Clamp;
 
    procedure Free (D : in out Context_Access) is
       Ignore : Xlib_Thin.C_Int;
@@ -346,10 +346,10 @@ package body Drw is
 
       Usedfont := D.Fonts;
       if Ellipsis_Width = 0 and then Render then
-         Ellipsis_Width := Fontset_Getwidth (D, "...");
+         Ellipsis_Width := Fontset_Get_Width (D, "...");
       end if;
       if Invalid_Width = 0 and then Render then
-         Invalid_Width := Fontset_Getwidth (D, Invalid_Glyph);
+         Invalid_Width := Fontset_Get_Width (D, Invalid_Glyph);
       end if;
 
       Outer_Loop :
@@ -381,7 +381,7 @@ package body Drw is
                      declare
                         Tmpw, Ignored_H : Natural;
                      begin
-                        Font_Getexts
+                        Font_Get_Exts
                           (Curfont, Txt (Text_Pos .. Text_Pos + Char_Len - 1), Char_Len,
                            Tmpw, Ignored_H);
                         if Ew + Ellipsis_Width <= Cur_W then

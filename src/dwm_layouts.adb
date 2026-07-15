@@ -18,13 +18,13 @@ package body Dwm_Layouts is
          C := C.Next;
       end loop;
       if N > 0 then
-         M.Ltsymbol := Dwm_Types.Lt_Symbol_Strings.To_Bounded_String
+         M.Lt_Symbol := Dwm_Types.Lt_Symbol_Strings.To_Bounded_String
            ("[" & Ada.Strings.Fixed.Trim (Natural'Image (N), Ada.Strings.Left) & "]");
       end if;
-      C := Dwm_Clients.Nexttiled (M.Clients);
+      C := Dwm_Clients.Next_Tiled (M.Clients);
       while C /= null loop
          Dwm_Clients.Resize (C, M.Wx, M.Wy, M.Ww - 2 * C.Bw, M.Wh - 2 * C.Bw, False);
-         C := Dwm_Clients.Nexttiled (C.Next);
+         C := Dwm_Clients.Next_Tiled (C.Next);
       end loop;
    end Monocle;
 
@@ -36,10 +36,10 @@ package body Dwm_Layouts is
       H  : Integer;
       I  : Integer := 0;
    begin
-      C := Dwm_Clients.Nexttiled (M.Clients);
+      C := Dwm_Clients.Next_Tiled (M.Clients);
       while C /= null loop
          N := N + 1;
-         C := Dwm_Clients.Nexttiled (C.Next);
+         C := Dwm_Clients.Next_Tiled (C.Next);
       end loop;
       if N = 0 then
          return;
@@ -51,7 +51,7 @@ package body Dwm_Layouts is
          Mw := M.Ww;
       end if;
 
-      C := Dwm_Clients.Nexttiled (M.Clients);
+      C := Dwm_Clients.Next_Tiled (M.Clients);
       I := 0;
       while C /= null loop
          if I < M.Nmaster then
@@ -68,7 +68,7 @@ package body Dwm_Layouts is
             end if;
          end if;
          I := I + 1;
-         C := Dwm_Clients.Nexttiled (C.Next);
+         C := Dwm_Clients.Next_Tiled (C.Next);
       end loop;
    end Tile;
 

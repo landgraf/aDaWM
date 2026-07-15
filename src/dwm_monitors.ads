@@ -6,21 +6,21 @@ with Xlib_Thin;
 --  wintomon, updatebarpos.
 package Dwm_Monitors is
 
-   function Createmon return Dwm_Types.Monitor_Access;
-   procedure Cleanupmon (Mon : Dwm_Types.Monitor_Access);
+   function Create_Mon return Dwm_Types.Monitor_Access;
+   procedure Cleanup_Mon (Mon : Dwm_Types.Monitor_Access);
 
-   function Dirtomon (Dir : Integer) return Dwm_Types.Monitor_Access;
-   function Recttomon (X, Y, W, H : Integer) return Dwm_Types.Monitor_Access;
-   function Wintomon (Win : Xlib_Thin.Window) return Dwm_Types.Monitor_Access;
+   function Dir_To_Mon (Dir : Integer) return Dwm_Types.Monitor_Access;
+   function Rect_To_Mon (X, Y, W, H : Integer) return Dwm_Types.Monitor_Access;
+   function Win_To_Mon (Win : Xlib_Thin.Window) return Dwm_Types.Monitor_Access;
 
-   procedure Updatebarpos (M : Dwm_Types.Monitor_Access);
+   procedure Update_Bar_Pos (M : Dwm_Types.Monitor_Access);
 
    --  Returns True if monitor geometry actually changed (dwm.c's
    --  "dirty" return value).
-   function Updategeom return Boolean;
+   function Update_Geom return Boolean;
 
    --  The expose event handler lives here (not Dwm_Events) because it
-   --  needs Wintomon, and Dwm_Actions.Movemouse/Resizemouse must pump
+   --  needs Win_To_Mon, and Dwm_Actions.Move_Mouse/Resize_Mouse must pump
    --  it during their drag loops without depending on Dwm_Events.
    procedure Expose (Ev : access Xlib_Thin.XEvent);
 

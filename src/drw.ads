@@ -42,9 +42,9 @@ package Drw is
 
    function Fontset_Create (D : Context_Access; Fonts : Dwm_Types.Command) return Fnt_Access;
    procedure Fontset_Free (Font : in out Fnt_Access);
-   function Fontset_Getwidth (D : Context_Access; Txt : String) return Natural;
-   function Fontset_Getwidth_Clamp (D : Context_Access; Txt : String; N : Natural) return Natural;
-   procedure Font_Getexts
+   function Fontset_Get_Width (D : Context_Access; Txt : String) return Natural;
+   function Fontset_Get_Width_Clamp (D : Context_Access; Txt : String; N : Natural) return Natural;
+   procedure Font_Get_Exts
      (Font : Fnt_Access; Txt : String; Len : Natural; W : out Natural; H : out Natural);
 
    procedure Clr_Create (D : Context_Access; Dest : access Xft_Thin.XftColor; Clrname : String);

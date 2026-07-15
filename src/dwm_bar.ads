@@ -5,9 +5,9 @@ with Dwm_Types;
 --  (pure monitor-geometry bookkeeping, no window/drawing calls).
 package Dwm_Bar is
 
-   procedure Drawbar (M : Dwm_Types.Monitor_Access);
-   procedure Drawbars;
-   procedure Updatebars;
-   procedure Updatestatus;
+   procedure Draw_Bar (M : Dwm_Types.Monitor_Access);
+   procedure Draw_Bars;
+   procedure Update_Bars;
+   procedure Update_Status;
 
 end Dwm_Bar;

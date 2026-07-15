@@ -14,10 +14,10 @@ with Xlib_Thin;
 package Config is
 
    --  appearance
-   Borderpx  : constant := 1;
+   Border_Px  : constant := 1;
    Snap      : constant := 32;
-   Showbar   : constant Boolean := True;
-   Topbar    : constant Boolean := True;
+   Show_Bar   : constant Boolean := True;
+   Top_Bar    : constant Boolean := True;
 
    Font_Name : aliased constant String := "monospace:size=10";
    Fonts : constant Dwm_Types.Command := (1 => Font_Name'Access);
@@ -63,19 +63,19 @@ package Config is
 
    Rules : constant Dwm_Types.Rule_Array :=
      ((Class => Gimp_Class'Access, Instance => null, Title => null,
-       Tags => 0, Isfloating => True, Monitor => -1),
+       Tags => 0, Is_Floating => True, Monitor => -1),
       (Class => Firefox_Class'Access, Instance => null, Title => null,
-       Tags => 256, Isfloating => False, Monitor => -1));
+       Tags => 256, Is_Floating => False, Monitor => -1));
 
    --  layout(s)
    Mfact         : constant Float := 0.55;
    Nmaster       : constant := 1;
-   Resizehints   : constant Boolean := True;
-   Lockfullscreen : constant Boolean := True;
-   Refreshrate   : constant := 120;
+   Resize_Hints   : constant Boolean := True;
+   Lock_Full_Screen : constant Boolean := True;
+   Refresh_Rate   : constant := 120;
 
    --  key definitions
-   Modkey : constant Xlib_Thin.C_UInt := Xlib_Thin.Mod1Mask;
+   Mod_Key : constant Xlib_Thin.C_UInt := Xlib_Thin.Mod1Mask;
 
    --  commands
    Dmenu_Font_Str : aliased constant String := "monospace:size=10";

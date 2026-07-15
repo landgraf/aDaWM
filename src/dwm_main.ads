@@ -1,7 +1,7 @@
 --  Port of dwm.c's checkotherwm/setup/scan/run/cleanup and main().
 package Dwm_Main is
 
-   procedure Checkotherwm;
+   procedure Check_Other_Wm;
    procedure Setup;
    procedure Scan;
    procedure Run;
