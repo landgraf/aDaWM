@@ -1,0 +1,31 @@
+with "config/dwm_config.gpr";
+
+project Dwm is
+
+   for Source_Dirs use ("src/", "config/");
+   for Object_Dir use "obj/" & Dwm_Config.Build_Profile;
+   for Create_Missing_Dirs use "True";
+   for Exec_Dir use "bin";
+   for Main use ("main.adb");
+
+   package Builder is
+      for Executable ("main.adb") use "dwm";
+   end Builder;
+
+   package Compiler is
+      --  Widen the max-line-length style check from Alire's default 79
+      --  columns; this project's C-binding specs read better unwrapped.
+      for Default_Switches ("Ada") use Dwm_Config.Ada_Compiler_Switches &
+        ("-gnatyM120");
+   end Compiler;
+
+   package Binder is
+      for Switches ("Ada") use ("-Es");
+   end Binder;
+
+   package Linker is
+      for Switches ("Ada") use
+        ("-lX11", "-lXft", "-lXinerama", "-lfontconfig", "-lfreetype");
+   end Linker;
+
+end Dwm;

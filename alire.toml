@@ -1,0 +1,17 @@
+name = "dwm"
+description = "dynamic window manager, ported to Ada"
+version = "6.8.0"
+authors = ["Pavel Zhukov"]
+maintainers = ["Pavel Zhukov <pavel.y.zhukov@gmail.com>"]
+maintainers-logins = []
+licenses = "MIT"
+website = ""
+tags = ["x11", "window-manager"]
+executables = ["dwm"]
+
+[[depends-on]]
+gnat = "*"
+
+[gpr-externals]
+
+[gpr-set-externals]

@@ -1,0 +1,27 @@
+with Dwm_Types;
+with Xlib_Thin;
+
+--  Port of the monitor-geometry parts of dwm.c: createmon/cleanupmon,
+--  updategeom (including the Xinerama path), recttomon/dirtomon/
+--  wintomon, updatebarpos.
+package Dwm_Monitors is
+
+   function Createmon return Dwm_Types.Monitor_Access;
+   procedure Cleanupmon (Mon : Dwm_Types.Monitor_Access);
+
+   function Dirtomon (Dir : Integer) return Dwm_Types.Monitor_Access;
+   function Recttomon (X, Y, W, H : Integer) return Dwm_Types.Monitor_Access;
+   function Wintomon (Win : Xlib_Thin.Window) return Dwm_Types.Monitor_Access;
+
+   procedure Updatebarpos (M : Dwm_Types.Monitor_Access);
+
+   --  Returns True if monitor geometry actually changed (dwm.c's
+   --  "dirty" return value).
+   function Updategeom return Boolean;
+
+   --  The expose event handler lives here (not Dwm_Events) because it
+   --  needs Wintomon, and Dwm_Actions.Movemouse/Resizemouse must pump
+   --  it during their drag loops without depending on Dwm_Events.
+   procedure Expose (Ev : access Xlib_Thin.XEvent);
+
+end Dwm_Monitors;
