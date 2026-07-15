@@ -30,7 +30,7 @@ package body Dwm_Xutil is
       Ignore : Xlib_Thin.C_Int;
    begin
       Status := Xlib_Thin.XGetWindowProperty
-        (Dwm_State.Display, Window, Prop, 0, 8, 0, Xlib_Thin.XA_ATOM,
+        (Dwm_State.Get_Display, Window, Prop, 0, 8, 0, Xlib_Thin.XA_ATOM,
          Actual_Type'Access, Format'Access, Nitems'Access, Bytes_After'Access, Prop_Value'Access);
       if Status = Xlib_Thin.Success and then Prop_Value /= System.Null_Address then
          if Nitems > 0 and then Format = 32 then
@@ -49,7 +49,7 @@ package body Dwm_Xutil is
       Ok : Xlib_Thin.C_Int;
    begin
       Ok := Xlib_Thin.XQueryPointer
-        (Dwm_State.Display, Dwm_State.Root, Dummy_Win'Access, Dummy_Win'Access,
+        (Dwm_State.Get_Display, Dwm_State.Get_Root, Dummy_Win'Access, Dummy_Win'Access,
          Root_X'Access, Root_Y'Access, Dummy_Int1'Access, Dummy_Int2'Access, Dummy_Mask'Access);
       Pos_X := Integer (Root_X);
       Pos_Y := Integer (Root_Y);
@@ -66,8 +66,8 @@ package body Dwm_Xutil is
       Ignore : Xlib_Thin.C_Int;
    begin
       Status := Xlib_Thin.XGetWindowProperty
-        (Dwm_State.Display, Window, Dwm_State.Wm_Atom (Dwm_State.WM_State), 0, 2, 0,
-         Dwm_State.Wm_Atom (Dwm_State.WM_State), Actual_Type'Access, Format'Access,
+        (Dwm_State.Get_Display, Window, Dwm_State.Get_Wm_Atom (Dwm_State.WM_State), 0, 2, 0,
+         Dwm_State.Get_Wm_Atom (Dwm_State.WM_State), Actual_Type'Access, Format'Access,
          Nitems'Access, Bytes_After'Access, Prop_Value'Access);
       if Status /= Xlib_Thin.Success then
          return -1;
@@ -85,7 +85,7 @@ package body Dwm_Xutil is
       Name : aliased Xlib_Thin.XTextProperty;
       Ok   : Xlib_Thin.C_Int;
    begin
-      Ok := Xlib_Thin.XGetTextProperty (Dwm_State.Display, Window, Name'Access, Prop);
+      Ok := Xlib_Thin.XGetTextProperty (Dwm_State.Get_Display, Window, Name'Access, Prop);
       if Ok = 0 or else Name.Nitems = 0 then
          return "";
       end if;
@@ -108,7 +108,7 @@ package body Dwm_Xutil is
                Result_Code : Xlib_Thin.C_Int;
             begin
                Result_Code := Xlib_Thin.XmbTextPropertyToTextList
-                 (Dwm_State.Display, Name'Access, List_Ptr'Access, Count'Access);
+                 (Dwm_State.Get_Display, Name'Access, List_Ptr'Access, Count'Access);
                if Result_Code >= Xlib_Thin.Success and then Count > 0
                  and then List_Ptr /= System.Null_Address
                then

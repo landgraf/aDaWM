@@ -48,10 +48,10 @@ package body Dwm_Monitors is
       Freed_Monitor : Dwm_Types.Monitor_Access := Monitor;
       Ignore : Xlib_Thin.C_Int;
    begin
-      if Monitor = Dwm_State.Monitors then
-         Dwm_State.Monitors := Dwm_State.Monitors.Next;
+      if Monitor = Dwm_State.Get_Monitors then
+         Dwm_State.Set_Monitors (Dwm_State.Get_Monitors.Next);
       else
-         Cur := Dwm_State.Monitors;
+         Cur := Dwm_State.Get_Monitors;
          while Cur /= null and then Cur.Next /= Monitor loop
             Cur := Cur.Next;
          end loop;
@@ -59,8 +59,8 @@ package body Dwm_Monitors is
             Cur.Next := Monitor.Next;
          end if;
       end if;
-      Ignore := Xlib_Thin.XUnmapWindow (Dwm_State.Display, Monitor.Bar_Window);
-      Ignore := Xlib_Thin.XDestroyWindow (Dwm_State.Display, Monitor.Bar_Window);
+      Ignore := Xlib_Thin.XUnmapWindow (Dwm_State.Get_Display, Monitor.Bar_Window);
+      Ignore := Xlib_Thin.XDestroyWindow (Dwm_State.Get_Display, Monitor.Bar_Window);
       Dwm_Types.Free_Monitor (Freed_Monitor);
    end Cleanup_Mon;
 
@@ -72,10 +72,10 @@ package body Dwm_Monitors is
       Monitor.Num_Master := Config.Num_Master;
       Monitor.Show_Bar := Config.Show_Bar;
       Monitor.Top_Bar := Config.Top_Bar;
-      Monitor.Layout := Dwm_State.Default_Layout;
-      if Dwm_State.Default_Layout (0) /= null then
+      Monitor.Layout := Dwm_State.Get_Default_Layout;
+      if Dwm_State.Get_Default_Layout (0) /= null then
          Monitor.Lt_Symbol := Dwm_Types.Lt_Symbol_Strings.To_Bounded_String
-           (Dwm_State.Default_Layout (0).Symbol.all, Ada.Strings.Right);
+           (Dwm_State.Get_Default_Layout (0).Symbol.all, Ada.Strings.Right);
       end if;
       return Monitor;
    end Create_Mon;
@@ -84,18 +84,18 @@ package body Dwm_Monitors is
       Result : Dwm_Types.Monitor_Access := null;
    begin
       if Direction > 0 then
-         Result := Dwm_State.Selected_Monitor.Next;
+         Result := Dwm_State.Get_Selected_Monitor.Next;
          if Result = null then
-            Result := Dwm_State.Monitors;
+            Result := Dwm_State.Get_Monitors;
          end if;
-      elsif Dwm_State.Selected_Monitor = Dwm_State.Monitors then
-         Result := Dwm_State.Monitors;
+      elsif Dwm_State.Get_Selected_Monitor = Dwm_State.Get_Monitors then
+         Result := Dwm_State.Get_Monitors;
          while Result.Next /= null loop
             Result := Result.Next;
          end loop;
       else
-         Result := Dwm_State.Monitors;
-         while Result.Next /= Dwm_State.Selected_Monitor loop
+         Result := Dwm_State.Get_Monitors;
+         while Result.Next /= Dwm_State.Get_Selected_Monitor loop
             Result := Result.Next;
          end loop;
       end if;
@@ -140,8 +140,8 @@ package body Dwm_Monitors is
       Monitor, Best : Dwm_Types.Monitor_Access;
       Best_Area, Cur_Area : Integer := 0;
    begin
-      Best := Dwm_State.Selected_Monitor;
-      Monitor := Dwm_State.Monitors;
+      Best := Dwm_State.Get_Selected_Monitor;
+      Monitor := Dwm_State.Get_Monitors;
       while Monitor /= null loop
          Cur_Area :=
            Util.Max_Integer
@@ -164,12 +164,12 @@ package body Dwm_Monitors is
       Monitor.Work_Y := Monitor.Screen_Y;
       Monitor.Work_Height := Monitor.Screen_Height;
       if Monitor.Show_Bar then
-         Monitor.Work_Height := Monitor.Work_Height - Dwm_State.Bar_Height;
+         Monitor.Work_Height := Monitor.Work_Height - Dwm_State.Get_Bar_Height;
          Monitor.Bar_Y := (if Monitor.Top_Bar then Monitor.Work_Y else Monitor.Work_Y + Monitor.Work_Height);
          Monitor.Work_Y :=
-           (if Monitor.Top_Bar then Monitor.Work_Y + Dwm_State.Bar_Height else Monitor.Work_Y);
+           (if Monitor.Top_Bar then Monitor.Work_Y + Dwm_State.Get_Bar_Height else Monitor.Work_Y);
       else
-         Monitor.Bar_Y := -Dwm_State.Bar_Height;
+         Monitor.Bar_Y := -Dwm_State.Get_Bar_Height;
       end if;
    end Update_Bar_Pos;
 
@@ -177,7 +177,7 @@ package body Dwm_Monitors is
       Dirty : Boolean := False;
       Active : Xlib_Thin.C_Int;
    begin
-      Active := Xinerama_Thin.XineramaIsActive (Dwm_State.Display);
+      Active := Xinerama_Thin.XineramaIsActive (Dwm_State.Get_Display);
       if Active /= 0 then
          declare
             Screen_Count : aliased Xlib_Thin.C_Int;
@@ -187,9 +187,9 @@ package body Dwm_Monitors is
             Client : Dwm_Types.Client_Access;
             Ignore : Xlib_Thin.C_Int;
          begin
-            Info_Addr := Xinerama_Thin.XineramaQueryScreens (Dwm_State.Display, Screen_Count'Access);
+            Info_Addr := Xinerama_Thin.XineramaQueryScreens (Dwm_State.Get_Display, Screen_Count'Access);
 
-            Monitor := Dwm_State.Monitors;
+            Monitor := Dwm_State.Get_Monitors;
             while Monitor /= null loop
                Existing_Count := Existing_Count + 1;
                Monitor := Monitor.Next;
@@ -216,18 +216,18 @@ package body Dwm_Monitors is
                   Unique_Total : constant Natural := Unique_Count;
                begin
                   for Idx in Existing_Count .. Unique_Total - 1 loop
-                     Monitor := Dwm_State.Monitors;
+                     Monitor := Dwm_State.Get_Monitors;
                      while Monitor /= null and then Monitor.Next /= null loop
                         Monitor := Monitor.Next;
                      end loop;
                      if Monitor /= null then
                         Monitor.Next := Create_Mon;
                      else
-                        Dwm_State.Monitors := Create_Mon;
+                        Dwm_State.Set_Monitors (Create_Mon);
                      end if;
                   end loop;
 
-                  Monitor := Dwm_State.Monitors;
+                  Monitor := Dwm_State.Get_Monitors;
                   for Idx in 0 .. Unique_Total - 1 loop
                      exit when Monitor = null;
                      if Idx >= Existing_Count
@@ -252,7 +252,7 @@ package body Dwm_Monitors is
                   end loop;
 
                   for Idx in Unique_Total .. Existing_Count - 1 loop
-                     Monitor := Dwm_State.Monitors;
+                     Monitor := Dwm_State.Get_Monitors;
                      while Monitor /= null and then Monitor.Next /= null loop
                         Monitor := Monitor.Next;
                      end loop;
@@ -262,12 +262,12 @@ package body Dwm_Monitors is
                         Client := Monitor.Clients;
                         Monitor.Clients := Client.Next;
                         Dwm_Clients.Detach_Stack (Client);
-                        Client.Monitor := Dwm_State.Monitors;
+                        Client.Monitor := Dwm_State.Get_Monitors;
                         Dwm_Clients.Attach (Client);
                         Dwm_Clients.Attach_Stack (Client);
                      end loop;
-                     if Monitor = Dwm_State.Selected_Monitor then
-                        Dwm_State.Selected_Monitor := Dwm_State.Monitors;
+                     if Monitor = Dwm_State.Get_Selected_Monitor then
+                        Dwm_State.Set_Selected_Monitor (Dwm_State.Get_Monitors);
                      end if;
                      To_Remove := Monitor;
                      Cleanup_Mon (To_Remove);
@@ -276,23 +276,23 @@ package body Dwm_Monitors is
             end;
          end;
       else
-         if Dwm_State.Monitors = null then
-            Dwm_State.Monitors := Create_Mon;
+         if Dwm_State.Get_Monitors = null then
+            Dwm_State.Set_Monitors (Create_Mon);
          end if;
-         if Dwm_State.Monitors.Screen_Width /= Dwm_State.Screen_Width
-           or else Dwm_State.Monitors.Screen_Height /= Dwm_State.Screen_Height
+         if Dwm_State.Get_Monitors.Screen_Width /= Dwm_State.Get_Screen_Width
+           or else Dwm_State.Get_Monitors.Screen_Height /= Dwm_State.Get_Screen_Height
          then
             Dirty := True;
-            Dwm_State.Monitors.Screen_Width := Dwm_State.Screen_Width;
-            Dwm_State.Monitors.Work_Width := Dwm_State.Screen_Width;
-            Dwm_State.Monitors.Screen_Height := Dwm_State.Screen_Height;
-            Dwm_State.Monitors.Work_Height := Dwm_State.Screen_Height;
-            Update_Bar_Pos (Dwm_State.Monitors);
+            Dwm_State.Get_Monitors.Screen_Width := Dwm_State.Get_Screen_Width;
+            Dwm_State.Get_Monitors.Work_Width := Dwm_State.Get_Screen_Width;
+            Dwm_State.Get_Monitors.Screen_Height := Dwm_State.Get_Screen_Height;
+            Dwm_State.Get_Monitors.Work_Height := Dwm_State.Get_Screen_Height;
+            Update_Bar_Pos (Dwm_State.Get_Monitors);
          end if;
       end if;
       if Dirty then
-         Dwm_State.Selected_Monitor := Dwm_State.Monitors;
-         Dwm_State.Selected_Monitor := Win_To_Mon (Dwm_State.Root);
+         Dwm_State.Set_Selected_Monitor (Dwm_State.Get_Monitors);
+         Dwm_State.Set_Selected_Monitor (Win_To_Mon (Dwm_State.Get_Root));
       end if;
       return Dirty;
    end Update_Geom;
@@ -302,10 +302,10 @@ package body Dwm_Monitors is
       Client : Dwm_Types.Client_Access;
       Monitor : Dwm_Types.Monitor_Access;
    begin
-      if Window = Dwm_State.Root and then Dwm_Xutil.Get_Root_Ptr (Pos_X, Pos_Y) then
+      if Window = Dwm_State.Get_Root and then Dwm_Xutil.Get_Root_Ptr (Pos_X, Pos_Y) then
          return Rect_To_Mon (Pos_X, Pos_Y, 1, 1);
       end if;
-      Monitor := Dwm_State.Monitors;
+      Monitor := Dwm_State.Get_Monitors;
       while Monitor /= null loop
          if Window = Monitor.Bar_Window then
             return Monitor;
@@ -316,7 +316,7 @@ package body Dwm_Monitors is
       if Client /= null then
          return Client.Monitor;
       end if;
-      return Dwm_State.Selected_Monitor;
+      return Dwm_State.Get_Selected_Monitor;
    end Win_To_Mon;
 
 end Dwm_Monitors;

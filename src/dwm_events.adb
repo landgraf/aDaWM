@@ -18,10 +18,10 @@ package body Dwm_Events is
    use type Dwm_Types.Key_Func;
 
    function Text_Width (S : String) return Natural is
-     (Drw.Fontset_Get_Width (Dwm_State.Drw_Ctx, S) + Dwm_State.Left_Right_Pad);
+     (Drw.Fontset_Get_Width (Dwm_State.Get_Drw_Ctx, S) + Dwm_State.Get_Left_Right_Pad);
 
    function Clean_Mask (Mask : Xlib_Thin.C_UInt) return Xlib_Thin.C_UInt is
-     (Mask and not (Dwm_State.Num_Lock_Mask or Xlib_Thin.LockMask)
+     (Mask and not (Dwm_State.Get_Num_Lock_Mask or Xlib_Thin.LockMask)
       and (Xlib_Thin.ShiftMask or Xlib_Thin.ControlMask or Xlib_Thin.Mod1Mask or Xlib_Thin.Mod2Mask
              or Xlib_Thin.Mod3Mask or Xlib_Thin.Mod4Mask or Xlib_Thin.Mod5Mask));
 
@@ -39,12 +39,12 @@ package body Dwm_Events is
       Ignore : Xlib_Thin.C_Int;
    begin
       Monitor := Dwm_Monitors.Win_To_Mon (Button_Event.Win);
-      if Monitor /= null and then Monitor /= Dwm_State.Selected_Monitor then
-         Dwm_Clients.Unfocus (Dwm_State.Selected_Monitor.Selected_Client, True);
-         Dwm_State.Selected_Monitor := Monitor;
+      if Monitor /= null and then Monitor /= Dwm_State.Get_Selected_Monitor then
+         Dwm_Clients.Unfocus (Dwm_State.Get_Selected_Monitor.Selected_Client, True);
+         Dwm_State.Set_Selected_Monitor (Monitor);
          Dwm_Clients.Focus (null);
       end if;
-      if Button_Event.Win = Dwm_State.Selected_Monitor.Bar_Window then
+      if Button_Event.Win = Dwm_State.Get_Selected_Monitor.Bar_Window then
          loop
             Cur_X := Cur_X + Text_Width (Config.Tags (Config.Tags'First + Idx).all);
             exit when not (Integer (Button_Event.X) >= Cur_X);
@@ -56,13 +56,13 @@ package body Dwm_Events is
             Arg_Val := (Uint_Value => 2 ** Idx, others => <>);
          elsif Integer (Button_Event.X)
                  < Cur_X
-                     + Text_Width (Dwm_Types.Lt_Symbol_Strings.To_String (Dwm_State.Selected_Monitor.Lt_Symbol))
+                     + Text_Width (Dwm_Types.Lt_Symbol_Strings.To_String (Dwm_State.Get_Selected_Monitor.Lt_Symbol))
          then
             Click := Dwm_Types.Clk_Lt_Symbol;
          elsif Integer (Button_Event.X)
-                 > Dwm_State.Selected_Monitor.Work_Width
-                     - Text_Width (Dwm_Types.Client_Name_Strings.To_String (Dwm_State.Stext))
-                     + Dwm_State.Left_Right_Pad - 2
+                 > Dwm_State.Get_Selected_Monitor.Work_Width
+                     - Text_Width (Dwm_Types.Client_Name_Strings.To_String (Dwm_State.Get_Stext))
+                     + Dwm_State.Get_Left_Right_Pad - 2
          then
             Click := Dwm_Types.Clk_Status_Text;
          else
@@ -72,13 +72,13 @@ package body Dwm_Events is
          Client := Dwm_Clients.Win_To_Client (Button_Event.Win);
          if Client /= null then
             Dwm_Clients.Focus (Client);
-            Dwm_Clients.Restack (Dwm_State.Selected_Monitor);
-            Ignore := Xlib_Thin.XAllowEvents (Dwm_State.Display, Xlib_Thin.ReplayPointer, Xlib_Thin.Current_Time);
+            Dwm_Clients.Restack (Dwm_State.Get_Selected_Monitor);
+            Ignore := Xlib_Thin.XAllowEvents (Dwm_State.Get_Display, Xlib_Thin.ReplayPointer, Xlib_Thin.Current_Time);
             Click := Dwm_Types.Clk_Client_Win;
          end if;
       end if;
-      if Dwm_State.Buttons /= null then
-         for Binding of Dwm_State.Buttons.all loop
+      if Dwm_State.Get_Buttons /= null then
+         for Binding of Dwm_State.Get_Buttons.all loop
             if Click = Binding.Click and then Binding.Func /= null
               and then Binding.Button = Button_Event.Button
               and then Clean_Mask (Binding.Modifier) = Clean_Mask (Button_Event.State)
@@ -101,17 +101,17 @@ package body Dwm_Events is
       if Client = null then
          return;
       end if;
-      if Message_Event.Message_Type = Dwm_State.Net_Atom (Dwm_State.Net_WM_State) then
-         if Xlib_Thin.Atom (Message_Event.Data.L (1)) = Dwm_State.Net_Atom (Dwm_State.Net_WM_Fullscreen)
-           or else Xlib_Thin.Atom (Message_Event.Data.L (2)) = Dwm_State.Net_Atom (Dwm_State.Net_WM_Fullscreen)
+      if Message_Event.Message_Type = Dwm_State.Get_Net_Atom (Dwm_State.Net_WM_State) then
+         if Xlib_Thin.Atom (Message_Event.Data.L (1)) = Dwm_State.Get_Net_Atom (Dwm_State.Net_WM_Fullscreen)
+           or else Xlib_Thin.Atom (Message_Event.Data.L (2)) = Dwm_State.Get_Net_Atom (Dwm_State.Net_WM_Fullscreen)
          then
             Dwm_Clients.Set_Full_Screen
               (Client,
                Message_Event.Data.L (0) = 1
                  or else (Message_Event.Data.L (0) = 2 and then not Client.Is_Full_Screen));
          end if;
-      elsif Message_Event.Message_Type = Dwm_State.Net_Atom (Dwm_State.Net_Active_Window) then
-         if Client /= Dwm_State.Selected_Monitor.Selected_Client and then not Client.Is_Urgent then
+      elsif Message_Event.Message_Type = Dwm_State.Get_Net_Atom (Dwm_State.Net_Active_Window) then
+         if Client /= Dwm_State.Get_Selected_Monitor.Selected_Client and then not Client.Is_Urgent then
             Dwm_Clients.Set_Urgent (Client, True);
          end if;
       end if;
@@ -125,17 +125,17 @@ package body Dwm_Events is
       Client  : Dwm_Types.Client_Access;
       Ignore : Xlib_Thin.C_Int;
    begin
-      if Configure_Event.Win /= Dwm_State.Root then
+      if Configure_Event.Win /= Dwm_State.Get_Root then
          return;
       end if;
-      Dirty := Dwm_State.Screen_Width /= Integer (Configure_Event.Width)
-        or else Dwm_State.Screen_Height /= Integer (Configure_Event.Height);
-      Dwm_State.Screen_Width := Integer (Configure_Event.Width);
-      Dwm_State.Screen_Height := Integer (Configure_Event.Height);
+      Dirty := Dwm_State.Get_Screen_Width /= Integer (Configure_Event.Width)
+        or else Dwm_State.Get_Screen_Height /= Integer (Configure_Event.Height);
+      Dwm_State.Set_Screen_Width (Integer (Configure_Event.Width));
+      Dwm_State.Set_Screen_Height (Integer (Configure_Event.Height));
       if Dwm_Monitors.Update_Geom or else Dirty then
-         Drw.Resize (Dwm_State.Drw_Ctx, Dwm_State.Screen_Width, Dwm_State.Bar_Height);
+         Drw.Resize (Dwm_State.Get_Drw_Ctx, Dwm_State.Get_Screen_Width, Dwm_State.Get_Bar_Height);
          Dwm_Bar.Update_Bars;
-         Monitor := Dwm_State.Monitors;
+         Monitor := Dwm_State.Get_Monitors;
          while Monitor /= null loop
             Client := Monitor.Clients;
             while Client /= null loop
@@ -146,9 +146,9 @@ package body Dwm_Events is
                Client := Client.Next;
             end loop;
             Ignore := Xlib_Thin.XMoveResizeWindow
-              (Dwm_State.Display, Monitor.Bar_Window, Xlib_Thin.C_Int (Monitor.Work_X),
+              (Dwm_State.Get_Display, Monitor.Bar_Window, Xlib_Thin.C_Int (Monitor.Work_X),
                Xlib_Thin.C_Int (Monitor.Bar_Y), Xlib_Thin.C_UInt (Monitor.Work_Width),
-               Xlib_Thin.C_UInt (Dwm_State.Bar_Height));
+               Xlib_Thin.C_UInt (Dwm_State.Get_Bar_Height));
             Monitor := Monitor.Next;
          end loop;
          Dwm_Clients.Focus (null);
@@ -173,17 +173,17 @@ package body Dwm_Events is
       Monitor : Dwm_Types.Monitor_Access;
    begin
       if (Crossing_Event.Mode /= Xlib_Thin.NotifyNormal or else Crossing_Event.Detail = Xlib_Thin.NotifyInferior)
-        and then Crossing_Event.Win /= Dwm_State.Root
+        and then Crossing_Event.Win /= Dwm_State.Get_Root
       then
          return;
       end if;
       Client := Dwm_Clients.Win_To_Client (Crossing_Event.Win);
       Monitor :=
         (if Client /= null then Client.Monitor else Dwm_Monitors.Win_To_Mon (Crossing_Event.Win));
-      if Monitor /= Dwm_State.Selected_Monitor then
-         Dwm_Clients.Unfocus (Dwm_State.Selected_Monitor.Selected_Client, True);
-         Dwm_State.Selected_Monitor := Monitor;
-      elsif Client = null or else Client = Dwm_State.Selected_Monitor.Selected_Client then
+      if Monitor /= Dwm_State.Get_Selected_Monitor then
+         Dwm_Clients.Unfocus (Dwm_State.Get_Selected_Monitor.Selected_Client, True);
+         Dwm_State.Set_Selected_Monitor (Monitor);
+      elsif Client = null or else Client = Dwm_State.Get_Selected_Monitor.Selected_Client then
          return;
       end if;
       Dwm_Clients.Focus (Client);
@@ -193,10 +193,10 @@ package body Dwm_Events is
       Focus_Event : Xlib_Thin.XFocusChangeEvent with Address => Event.all'Address;
       pragma Import (Ada, Focus_Event);
    begin
-      if Dwm_State.Selected_Monitor.Selected_Client /= null
-        and then Focus_Event.Win /= Dwm_State.Selected_Monitor.Selected_Client.Window
+      if Dwm_State.Get_Selected_Monitor.Selected_Client /= null
+        and then Focus_Event.Win /= Dwm_State.Get_Selected_Monitor.Selected_Client.Window
       then
-         Dwm_Clients.Set_Focus (Dwm_State.Selected_Monitor.Selected_Client);
+         Dwm_Clients.Set_Focus (Dwm_State.Get_Selected_Monitor.Selected_Client);
       end if;
    end Focus_In;
 
@@ -204,10 +204,10 @@ package body Dwm_Events is
       Key_Event : Xlib_Thin.XKeyEvent with Address => Event.all'Address;
       pragma Import (Ada, Key_Event);
       Sym : constant Xlib_Thin.KeySym :=
-        Xlib_Thin.XKeycodeToKeysym (Dwm_State.Display, Xlib_Thin.KeyCode (Key_Event.Keycode), 0);
+        Xlib_Thin.XKeycodeToKeysym (Dwm_State.Get_Display, Xlib_Thin.KeyCode (Key_Event.Keycode), 0);
    begin
-      if Dwm_State.Keys /= null then
-         for Key_Def of Dwm_State.Keys.all loop
+      if Dwm_State.Get_Keys /= null then
+         for Key_Def of Dwm_State.Get_Keys.all loop
             if Sym = Key_Def.Sym and then Clean_Mask (Key_Def.Modifier) = Clean_Mask (Key_Event.State)
               and then Key_Def.Func /= null
             then
@@ -235,13 +235,13 @@ package body Dwm_Events is
       pragma Import (Ada, Motion_Event);
       Monitor : Dwm_Types.Monitor_Access;
    begin
-      if Motion_Event.Win /= Dwm_State.Root then
+      if Motion_Event.Win /= Dwm_State.Get_Root then
          return;
       end if;
       Monitor := Dwm_Monitors.Rect_To_Mon (Integer (Motion_Event.X_Root), Integer (Motion_Event.Y_Root), 1, 1);
       if Monitor /= Last_Motion_Monitor and then Last_Motion_Monitor /= null then
-         Dwm_Clients.Unfocus (Dwm_State.Selected_Monitor.Selected_Client, True);
-         Dwm_State.Selected_Monitor := Monitor;
+         Dwm_Clients.Unfocus (Dwm_State.Get_Selected_Monitor.Selected_Client, True);
+         Dwm_State.Set_Selected_Monitor (Monitor);
          Dwm_Clients.Focus (null);
       end if;
       Last_Motion_Monitor := Monitor;
@@ -253,7 +253,7 @@ package body Dwm_Events is
       Client : Dwm_Types.Client_Access;
       Trans : aliased Xlib_Thin.Window;
    begin
-      if Property_Event.Win = Dwm_State.Root and then Property_Event.Prop_Atom = Xlib_Thin.XA_WM_NAME then
+      if Property_Event.Win = Dwm_State.Get_Root and then Property_Event.Prop_Atom = Xlib_Thin.XA_WM_NAME then
          Dwm_Bar.Update_Status;
          return;
       elsif Property_Event.State = Xlib_Thin.PropertyDelete then
@@ -263,7 +263,7 @@ package body Dwm_Events is
       if Client /= null then
          if Property_Event.Prop_Atom = Xlib_Thin.XA_WM_TRANSIENT_FOR then
             if not Client.Is_Floating
-              and then Xlib_Thin.XGetTransientForHint (Dwm_State.Display, Client.Window, Trans'Access) /= 0
+              and then Xlib_Thin.XGetTransientForHint (Dwm_State.Get_Display, Client.Window, Trans'Access) /= 0
             then
                Client.Is_Floating := Dwm_Clients.Win_To_Client (Trans) /= null;
                if Client.Is_Floating then
@@ -277,14 +277,14 @@ package body Dwm_Events is
             Dwm_Bar.Draw_Bars;
          end if;
          if Property_Event.Prop_Atom = Xlib_Thin.XA_WM_NAME
-           or else Property_Event.Prop_Atom = Dwm_State.Net_Atom (Dwm_State.Net_WM_Name)
+           or else Property_Event.Prop_Atom = Dwm_State.Get_Net_Atom (Dwm_State.Net_WM_Name)
          then
             Dwm_Clients.Update_Title (Client);
             if Client = Client.Monitor.Selected_Client then
                Dwm_Bar.Draw_Bar (Client.Monitor);
             end if;
          end if;
-         if Property_Event.Prop_Atom = Dwm_State.Net_Atom (Dwm_State.Net_WM_Window_Type) then
+         if Property_Event.Prop_Atom = Dwm_State.Get_Net_Atom (Dwm_State.Net_WM_Window_Type) then
             Dwm_Clients.Update_Window_Type (Client);
          end if;
       end if;
