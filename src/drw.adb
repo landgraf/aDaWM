@@ -51,17 +51,16 @@ package body Drw is
    --  Color schemes                                                  --
    --------------------------------------------------------------------
 
+   --  No null checks on D/Dest: both are always real objects here
+   --  ('Access of an array component), never a possibly-null pointer
+   --  handed in by an untrusted caller the way drw.c's public API
+   --  had to allow for.
    procedure Clr_Create (D : Context_Access; Dest : access Xft_Thin.XftColor; Clrname : String) is
       Vis : constant Xlib_Thin.Visual := Xlib_Thin.XDefaultVisual (D.Disp, D.Screen);
       Cmap : constant Xlib_Thin.Colormap := Xlib_Thin.XDefaultColormap (D.Disp, D.Screen);
       C_Name : Interfaces.C.Strings.chars_ptr := New_String_Ptr (Clrname);
       Ok : Xlib_Thin.C_Int;
    begin
-      pragma Warnings (Off, "condition is always False");
-      if D = null or else Dest = null then
-         return;
-      end if;
-      pragma Warnings (On, "condition is always False");
       Ok := Xft_Thin.XftColorAllocName (D.Disp, Vis, Cmap, C_Name, Dest);
       Interfaces.C.Strings.Free (C_Name);
       if Ok = 0 then
@@ -73,11 +72,6 @@ package body Drw is
       Vis : constant Xlib_Thin.Visual := Xlib_Thin.XDefaultVisual (D.Disp, D.Screen);
       Cmap : constant Xlib_Thin.Colormap := Xlib_Thin.XDefaultColormap (D.Disp, D.Screen);
    begin
-      pragma Warnings (Off, "condition is always False");
-      if D = null or else C = null then
-         return;
-      end if;
-      pragma Warnings (On, "condition is always False");
       Xft_Thin.XftColorFree (D.Disp, Vis, Cmap, C);
    end Clr_Free;
 
