@@ -117,10 +117,11 @@ package body Dwm_Actions is
    end Focus_Stack;
 
    procedure Inc_Nmaster (Argument : in Dwm_Types.Arg) is
+      Monitor : constant Dwm_Types.Monitor_Access := Dwm_State.Get_Selected_Monitor;
    begin
-      Dwm_State.Get_Selected_Monitor.Num_Master :=
-        Util.Max_Integer (Dwm_State.Get_Selected_Monitor.Num_Master + Argument.Int_Value, 0);
-      Dwm_Clients.Arrange (Dwm_State.Get_Selected_Monitor);
+      Monitor.Num_Master := Util.Max_Integer (Monitor.Num_Master + Argument.Int_Value, 0);
+      Monitor.Per_Tag.Num_Masters (Monitor.Per_Tag.Cur_Tag) := Monitor.Num_Master;
+      Dwm_Clients.Arrange (Monitor);
    end Inc_Nmaster;
 
    procedure Kill_Client (Argument : in Dwm_Types.Arg) is
@@ -339,38 +340,41 @@ package body Dwm_Actions is
    end Resize_Mouse;
 
    procedure Set_Layout (Argument : in Dwm_Types.Arg) is
+      Monitor : constant Dwm_Types.Monitor_Access := Dwm_State.Get_Selected_Monitor;
    begin
-      if Argument.Layout = null
-        or else Argument.Layout /= Dwm_State.Get_Selected_Monitor.Layout (Dwm_State.Get_Selected_Monitor.Sel_Lt)
-      then
-         Dwm_State.Get_Selected_Monitor.Sel_Lt := 1 - Dwm_State.Get_Selected_Monitor.Sel_Lt;
+      if Argument.Layout = null or else Argument.Layout /= Monitor.Layout (Monitor.Sel_Lt) then
+         Monitor.Sel_Lt := 1 - Monitor.Sel_Lt;
+         Monitor.Per_Tag.Sel_Layouts (Monitor.Per_Tag.Cur_Tag) := Monitor.Sel_Lt;
       end if;
       if Argument.Layout /= null then
-         Dwm_State.Get_Selected_Monitor.Layout (Dwm_State.Get_Selected_Monitor.Sel_Lt) := Argument.Layout;
+         Monitor.Layout (Monitor.Sel_Lt) := Argument.Layout;
+         Monitor.Per_Tag.Layouts (Monitor.Per_Tag.Cur_Tag) (Monitor.Sel_Lt) := Argument.Layout;
       end if;
-      Dwm_State.Get_Selected_Monitor.Lt_Symbol := Dwm_Types.Lt_Symbol_Strings.To_Bounded_String
-        (Dwm_State.Get_Selected_Monitor.Layout (Dwm_State.Get_Selected_Monitor.Sel_Lt).Symbol.all, Ada.Strings.Right);
-      if Dwm_State.Get_Selected_Monitor.Selected_Client /= null then
-         Dwm_Clients.Arrange (Dwm_State.Get_Selected_Monitor);
+      Monitor.Lt_Symbol := Dwm_Types.Lt_Symbol_Strings.To_Bounded_String
+        (Monitor.Layout (Monitor.Sel_Lt).Symbol.all, Ada.Strings.Right);
+      if Monitor.Selected_Client /= null then
+         Dwm_Clients.Arrange (Monitor);
       else
-         Dwm_Bar.Draw_Bar (Dwm_State.Get_Selected_Monitor);
+         Dwm_Bar.Draw_Bar (Monitor);
       end if;
    end Set_Layout;
 
    procedure Set_Mfact (Argument : in Dwm_Types.Arg) is
+      Monitor : constant Dwm_Types.Monitor_Access := Dwm_State.Get_Selected_Monitor;
       New_Factor : Float;
    begin
-      if Dwm_State.Get_Selected_Monitor.Layout (Dwm_State.Get_Selected_Monitor.Sel_Lt).Arrange = null then
+      if Monitor.Layout (Monitor.Sel_Lt).Arrange = null then
          return;
       end if;
       New_Factor := (if Argument.Float_Value < 1.0
-            then Argument.Float_Value + Dwm_State.Get_Selected_Monitor.Master_Factor
+            then Argument.Float_Value + Monitor.Master_Factor
             else Argument.Float_Value - 1.0);
       if New_Factor < 0.05 or else New_Factor > 0.95 then
          return;
       end if;
-      Dwm_State.Get_Selected_Monitor.Master_Factor := New_Factor;
-      Dwm_Clients.Arrange (Dwm_State.Get_Selected_Monitor);
+      Monitor.Master_Factor := New_Factor;
+      Monitor.Per_Tag.Master_Factors (Monitor.Per_Tag.Cur_Tag) := New_Factor;
+      Dwm_Clients.Arrange (Monitor);
    end Set_Mfact;
 
    procedure Spawn (Argument : in Dwm_Types.Arg) is
@@ -423,16 +427,17 @@ package body Dwm_Actions is
 
    procedure Toggle_Bar (Argument : in Dwm_Types.Arg) is
       pragma Unreferenced (Argument);
+      Monitor : constant Dwm_Types.Monitor_Access := Dwm_State.Get_Selected_Monitor;
       Ignore : Xlib_Thin.C_Int;
    begin
-      Dwm_State.Get_Selected_Monitor.Show_Bar := not Dwm_State.Get_Selected_Monitor.Show_Bar;
-      Dwm_Monitors.Update_Bar_Pos (Dwm_State.Get_Selected_Monitor);
+      Monitor.Show_Bar := not Monitor.Show_Bar;
+      Monitor.Per_Tag.Show_Bars (Monitor.Per_Tag.Cur_Tag) := Monitor.Show_Bar;
+      Dwm_Monitors.Update_Bar_Pos (Monitor);
       Ignore := Xlib_Thin.XMoveResizeWindow
-        (Dwm_State.Get_Display, Dwm_State.Get_Selected_Monitor.Bar_Window,
-         Xlib_Thin.C_Int (Dwm_State.Get_Selected_Monitor.Work_X),
-         Xlib_Thin.C_Int (Dwm_State.Get_Selected_Monitor.Bar_Y),
-         Xlib_Thin.C_UInt (Dwm_State.Get_Selected_Monitor.Work_Width), Xlib_Thin.C_UInt (Dwm_State.Get_Bar_Height));
-      Dwm_Clients.Arrange (Dwm_State.Get_Selected_Monitor);
+        (Dwm_State.Get_Display, Monitor.Bar_Window,
+         Xlib_Thin.C_Int (Monitor.Work_X), Xlib_Thin.C_Int (Monitor.Bar_Y),
+         Xlib_Thin.C_UInt (Monitor.Work_Width), Xlib_Thin.C_UInt (Dwm_State.Get_Bar_Height));
+      Dwm_Clients.Arrange (Monitor);
    end Toggle_Bar;
 
    procedure Toggle_Floating (Argument : in Dwm_Types.Arg) is
@@ -472,31 +477,94 @@ package body Dwm_Actions is
    end Toggle_Tag;
 
    procedure Toggle_View (Argument : in Dwm_Types.Arg) is
+      Monitor : constant Dwm_Types.Monitor_Access := Dwm_State.Get_Selected_Monitor;
       New_Tag_Set : constant Dwm_Types.Tag_Mask :=
-        Dwm_State.Get_Selected_Monitor.Tag_Set (Dwm_State.Get_Selected_Monitor.Sel_Tags)
-          xor (Argument.Uint_Value and Tagmask);
+        Monitor.Tag_Set (Monitor.Sel_Tags) xor (Argument.Uint_Value and Tagmask);
    begin
       if New_Tag_Set /= 0 then
-         Dwm_State.Get_Selected_Monitor.Tag_Set (Dwm_State.Get_Selected_Monitor.Sel_Tags) := New_Tag_Set;
+         Monitor.Tag_Set (Monitor.Sel_Tags) := New_Tag_Set;
+
+         if New_Tag_Set = not Dwm_Types.Tag_Mask'(0) then
+            Monitor.Per_Tag.Prev_Tag := Monitor.Per_Tag.Cur_Tag;
+            Monitor.Per_Tag.Cur_Tag := 0;
+         end if;
+
+         --  Test if the user did not select the same tag (skipped
+         --  when Cur_Tag is 0, i.e. just switched to viewing all tags
+         --  above: dwm.c's equivalent check shifts by Cur_Tag - 1,
+         --  which is undefined behavior in C when Cur_Tag is 0, but
+         --  empirically leaves Cur_Tag at 0 on common platforms --
+         --  this reproduces that same outcome without relying on an
+         --  out-of-range shift).
+         if Monitor.Per_Tag.Cur_Tag /= 0
+           and then (New_Tag_Set and 2 ** (Monitor.Per_Tag.Cur_Tag - 1)) = 0
+         then
+            Monitor.Per_Tag.Prev_Tag := Monitor.Per_Tag.Cur_Tag;
+            for Idx in 0 .. Dwm_Types.Max_Tags - 1 loop
+               if (New_Tag_Set and 2 ** Idx) /= 0 then
+                  Monitor.Per_Tag.Cur_Tag := Idx + 1;
+                  exit;
+               end if;
+            end loop;
+         end if;
+
+         Monitor.Num_Master := Monitor.Per_Tag.Num_Masters (Monitor.Per_Tag.Cur_Tag);
+         Monitor.Master_Factor := Monitor.Per_Tag.Master_Factors (Monitor.Per_Tag.Cur_Tag);
+         Monitor.Sel_Lt := Monitor.Per_Tag.Sel_Layouts (Monitor.Per_Tag.Cur_Tag);
+         Monitor.Layout (Monitor.Sel_Lt) := Monitor.Per_Tag.Layouts (Monitor.Per_Tag.Cur_Tag) (Monitor.Sel_Lt);
+         Monitor.Layout (1 - Monitor.Sel_Lt) :=
+           Monitor.Per_Tag.Layouts (Monitor.Per_Tag.Cur_Tag) (1 - Monitor.Sel_Lt);
+
+         if Monitor.Show_Bar /= Monitor.Per_Tag.Show_Bars (Monitor.Per_Tag.Cur_Tag) then
+            Toggle_Bar (Dwm_Types.No_Arg);
+         end if;
+
          Dwm_Clients.Focus (null);
-         Dwm_Clients.Arrange (Dwm_State.Get_Selected_Monitor);
+         Dwm_Clients.Arrange (Monitor);
       end if;
    end Toggle_View;
 
    procedure View (Argument : in Dwm_Types.Arg) is
+      Monitor : constant Dwm_Types.Monitor_Access := Dwm_State.Get_Selected_Monitor;
+      Tmp_Tag : Dwm_Types.Tag_Slot;
    begin
-      if (Argument.Uint_Value and Tagmask)
-        = Dwm_State.Get_Selected_Monitor.Tag_Set (Dwm_State.Get_Selected_Monitor.Sel_Tags)
-      then
+      if (Argument.Uint_Value and Tagmask) = Monitor.Tag_Set (Monitor.Sel_Tags) then
          return;
       end if;
-      Dwm_State.Get_Selected_Monitor.Sel_Tags := 1 - Dwm_State.Get_Selected_Monitor.Sel_Tags;
+      Monitor.Sel_Tags := 1 - Monitor.Sel_Tags;
       if (Argument.Uint_Value and Tagmask) /= 0 then
-         Dwm_State.Get_Selected_Monitor.Tag_Set (Dwm_State.Get_Selected_Monitor.Sel_Tags) :=
-           Argument.Uint_Value and Tagmask;
+         Monitor.Tag_Set (Monitor.Sel_Tags) := Argument.Uint_Value and Tagmask;
+         Monitor.Per_Tag.Prev_Tag := Monitor.Per_Tag.Cur_Tag;
+
+         if Argument.Uint_Value = not Dwm_Types.Tag_Mask'(0) then
+            Monitor.Per_Tag.Cur_Tag := 0;
+         else
+            for Idx in 0 .. Dwm_Types.Max_Tags - 1 loop
+               if (Argument.Uint_Value and 2 ** Idx) /= 0 then
+                  Monitor.Per_Tag.Cur_Tag := Idx + 1;
+                  exit;
+               end if;
+            end loop;
+         end if;
+      else
+         Tmp_Tag := Monitor.Per_Tag.Prev_Tag;
+         Monitor.Per_Tag.Prev_Tag := Monitor.Per_Tag.Cur_Tag;
+         Monitor.Per_Tag.Cur_Tag := Tmp_Tag;
       end if;
+
+      Monitor.Num_Master := Monitor.Per_Tag.Num_Masters (Monitor.Per_Tag.Cur_Tag);
+      Monitor.Master_Factor := Monitor.Per_Tag.Master_Factors (Monitor.Per_Tag.Cur_Tag);
+      Monitor.Sel_Lt := Monitor.Per_Tag.Sel_Layouts (Monitor.Per_Tag.Cur_Tag);
+      Monitor.Layout (Monitor.Sel_Lt) := Monitor.Per_Tag.Layouts (Monitor.Per_Tag.Cur_Tag) (Monitor.Sel_Lt);
+      Monitor.Layout (1 - Monitor.Sel_Lt) :=
+        Monitor.Per_Tag.Layouts (Monitor.Per_Tag.Cur_Tag) (1 - Monitor.Sel_Lt);
+
+      if Monitor.Show_Bar /= Monitor.Per_Tag.Show_Bars (Monitor.Per_Tag.Cur_Tag) then
+         Toggle_Bar (Dwm_Types.No_Arg);
+      end if;
+
       Dwm_Clients.Focus (null);
-      Dwm_Clients.Arrange (Dwm_State.Get_Selected_Monitor);
+      Dwm_Clients.Arrange (Monitor);
    end View;
 
    procedure Zoom (Argument : in Dwm_Types.Arg) is

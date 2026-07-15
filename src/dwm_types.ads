@@ -134,6 +134,38 @@ package Dwm_Types is
 
    type Tagset_Array is array (0 .. 1) of Tag_Mask;
 
+   --  Highest tag count the pertag machinery below supports; matches
+   --  dwm.c's own hard limit (its NumTags compile-time check rejects
+   --  more than 31 configured tags, since tag sets are packed into an
+   --  unsigned int bit mask).
+   Max_Tags : constant := 31;
+
+   --  Index into a monitor's per-tag setting arrays: 1 .. N for each
+   --  individual configured tag, or 0 for the "viewing every tag at
+   --  once" (TAGMASK/~0) slot (dwm.c's pertag->curtag/prevtag).
+   subtype Tag_Slot is Natural range 0 .. Max_Tags;
+
+   type Num_Master_Per_Tag is array (Tag_Slot) of Integer;
+   type Master_Factor_Per_Tag is array (Tag_Slot) of Float;
+   type Sel_Lt_Per_Tag is array (Tag_Slot) of Natural range 0 .. 1;
+   type Layout_Per_Tag is array (Tag_Slot) of Layout_Pair;
+   type Show_Bar_Per_Tag is array (Tag_Slot) of Boolean;
+
+   --  Per-tag memory of the settings that Monitor otherwise holds only
+   --  one live copy of (master count/factor, selected layout, bar
+   --  visibility), so that switching tags restores what was last set
+   --  on that tag instead of carrying the previous tag's settings over
+   --  (dwm.c's `struct Pertag`, from the "pertag" patch).
+   type Per_Tag_State is record
+      Cur_Tag, Prev_Tag : Tag_Slot := 1;
+      Num_Masters     : Num_Master_Per_Tag := (others => 0);
+      Master_Factors  : Master_Factor_Per_Tag := (others => 0.0);
+      Sel_Layouts     : Sel_Lt_Per_Tag := (others => 0);
+      Layouts         : Layout_Per_Tag := (others => (others => null));
+      Show_Bars       : Show_Bar_Per_Tag := (others => True);
+   end record;
+   type Per_Tag_Access is access all Per_Tag_State;
+
    type Monitor is record
       Lt_Symbol    : Lt_Symbol_Strings.Bounded_String := Lt_Symbol_Strings.Null_Bounded_String;
       Master_Factor : Float := 0.0;
@@ -153,7 +185,14 @@ package Dwm_Types is
       Next         : Monitor_Access := null;
       Bar_Window   : Xlib_Thin.Window := Xlib_Thin.None;
       Layout       : Layout_Pair := (others => null);
+      Per_Tag      : Per_Tag_Access := null;
    end record;
+
+   --  Deallocates a Per_Tag_State (createmon()'s counterpart free in
+   --  cleanupmon() -- dwm.c never actually frees pertag itself, but
+   --  Ada.Unchecked_Deallocation gives Cleanup_Mon a way to avoid the
+   --  leak).
+   procedure Free_Per_Tag is new Ada.Unchecked_Deallocation (Per_Tag_State, Per_Tag_Access);
 
    --  Deallocates a Client (unmanage()'s free(c)); the access value is
    --  set to null on return, per Ada.Unchecked_Deallocation.

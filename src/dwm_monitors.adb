@@ -61,6 +61,7 @@ package body Dwm_Monitors is
       end if;
       Ignore := Xlib_Thin.XUnmapWindow (Dwm_State.Get_Display, Monitor.Bar_Window);
       Ignore := Xlib_Thin.XDestroyWindow (Dwm_State.Get_Display, Monitor.Bar_Window);
+      Dwm_Types.Free_Per_Tag (Freed_Monitor.Per_Tag);
       Dwm_Types.Free_Monitor (Freed_Monitor);
    end Cleanup_Mon;
 
@@ -77,6 +78,18 @@ package body Dwm_Monitors is
          Monitor.Lt_Symbol := Dwm_Types.Lt_Symbol_Strings.To_Bounded_String
            (Dwm_State.Get_Default_Layout (0).Symbol.all, Ada.Strings.Right);
       end if;
+
+      Monitor.Per_Tag := new Dwm_Types.Per_Tag_State;
+      Monitor.Per_Tag.Cur_Tag := 1;
+      Monitor.Per_Tag.Prev_Tag := 1;
+      for Tag in 0 .. Config.Tags'Length loop
+         Monitor.Per_Tag.Num_Masters (Tag) := Monitor.Num_Master;
+         Monitor.Per_Tag.Master_Factors (Tag) := Monitor.Master_Factor;
+         Monitor.Per_Tag.Layouts (Tag) := Monitor.Layout;
+         Monitor.Per_Tag.Sel_Layouts (Tag) := Monitor.Sel_Lt;
+         Monitor.Per_Tag.Show_Bars (Tag) := Monitor.Show_Bar;
+      end loop;
+
       return Monitor;
    end Create_Mon;
 
