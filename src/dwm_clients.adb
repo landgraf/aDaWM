@@ -33,28 +33,20 @@ package body Dwm_Clients is
 
    --------------------------------------------------------------------
    --  Small raw-memory helpers for reading X's flat KeyCode/KeySym/  --
-   --  Atom arrays (returned as bare addresses by Xlib_Thin).         --
+   --  Atom arrays (returned as bare addresses by Xlib_Thin), plus a  --
+   --  couple of small string/tag-mask helpers. Specs given here      --
+   --  (rather than in dwm_clients.ads) since these are private.      --
    --------------------------------------------------------------------
 
    type Keycode_Access is access all Xlib_Thin.KeyCode;
    function To_Keycode_Access is new Ada.Unchecked_Conversion (System.Address, Keycode_Access);
 
-   function Keycode_At (Base : System.Address; Index : Natural) return Xlib_Thin.KeyCode is
-      use type System.Storage_Elements.Storage_Offset;
-   begin
-      return To_Keycode_Access
-        (Base + System.Storage_Elements.Storage_Offset (Index)).all;
-   end Keycode_At;
+   function Keycode_At (Base : System.Address; Index : Natural) return Xlib_Thin.KeyCode;
 
    type Culong_Access is access all Xlib_Thin.C_ULong;
    function To_Culong_Access is new Ada.Unchecked_Conversion (System.Address, Culong_Access);
 
-   function Culong_At (Base : System.Address; Index : Natural) return Xlib_Thin.C_ULong is
-      use type System.Storage_Elements.Storage_Offset;
-   begin
-      return To_Culong_Access
-        (Base + System.Storage_Elements.Storage_Offset (Index * 8)).all;
-   end Culong_At;
+   function Culong_At (Base : System.Address; Index : Natural) return Xlib_Thin.C_ULong;
 
    function To_Address is new Ada.Unchecked_Conversion
      (Interfaces.C.Strings.chars_ptr, System.Address);
@@ -65,7 +57,7 @@ package body Dwm_Clients is
    Tagmask : constant Dwm_Types.Tag_Mask := 2 ** Config.Tags'Length - 1;
 
    --------------------------------------------------------------------
-   --  applyrules / applysizehints                                    --
+   --  Subprogram bodies (alphabetical order; -gnatyo)                --
    --------------------------------------------------------------------
 
    procedure Applyrules (C : Dwm_Types.Client_Access) is
@@ -192,10 +184,6 @@ package body Dwm_Clients is
       return X /= C.X or else Y /= C.Y or else W /= C.W or else H /= C.H;
    end Applysizehints;
 
-   --------------------------------------------------------------------
-   --  arrange / arrangemon                                           --
-   --------------------------------------------------------------------
-
    procedure Arrange (M : Dwm_Types.Monitor_Access) is
       Mm : Dwm_Types.Monitor_Access;
    begin
@@ -229,10 +217,6 @@ package body Dwm_Clients is
       end if;
    end Arrangemon;
 
-   --------------------------------------------------------------------
-   --  attach / detach (stack variants)                                --
-   --------------------------------------------------------------------
-
    procedure Attach (C : Dwm_Types.Client_Access) is
    begin
       C.Next := C.Mon.Clients;
@@ -244,6 +228,100 @@ package body Dwm_Clients is
       C.Snext := C.Mon.Stack;
       C.Mon.Stack := C;
    end Attachstack;
+
+   procedure Configure (C : Dwm_Types.Client_Access) is
+      Ev : aliased Xlib_Thin.XEvent;
+      Ce : Xlib_Thin.XConfigureEvent with Address => Ev'Address;
+      pragma Import (Ada, Ce);
+      Ignore : Xlib_Thin.C_Int;
+   begin
+      Ce.Event_Type := Xlib_Thin.ConfigureNotify;
+      Ce.Disp := Dwm_State.Dpy;
+      Ce.Event := C.Win;
+      Ce.Win := C.Win;
+      Ce.X := Xlib_Thin.C_Int (C.X);
+      Ce.Y := Xlib_Thin.C_Int (C.Y);
+      Ce.Width := Xlib_Thin.C_Int (C.W);
+      Ce.Height := Xlib_Thin.C_Int (C.H);
+      Ce.Border_Width := Xlib_Thin.C_Int (C.Bw);
+      Ce.Above := Xlib_Thin.None;
+      Ce.Override_Redirect := 0;
+      Ignore := Xlib_Thin.XSendEvent
+        (Dwm_State.Dpy, C.Win, 0, Xlib_Thin.StructureNotifyMask, Ev'Access);
+   end Configure;
+
+   procedure Configurerequest (Ev : access Xlib_Thin.XEvent) is
+      Cre : Xlib_Thin.XConfigureRequestEvent with Address => Ev.all'Address;
+      pragma Import (Ada, Cre);
+      C  : Dwm_Types.Client_Access;
+      M  : Dwm_Types.Monitor_Access;
+      Wc : aliased Xlib_Thin.XWindowChanges;
+      Ignore : Xlib_Thin.C_Int;
+   begin
+      C := Wintoclient (Cre.Win);
+      if C /= null then
+         if (Cre.Value_Mask and Xlib_Thin.C_ULong (Xlib_Thin.CWBorderWidth)) /= 0 then
+            C.Bw := Integer (Cre.Border_Width);
+         elsif C.Isfloating or else Dwm_State.Selmon.Lt (Dwm_State.Selmon.Sellt).Arrange = null then
+            M := C.Mon;
+            if (Cre.Value_Mask and Xlib_Thin.C_ULong (Xlib_Thin.CWX)) /= 0 then
+               C.Oldx := C.X;
+               C.X := M.Mx + Integer (Cre.X);
+            end if;
+            if (Cre.Value_Mask and Xlib_Thin.C_ULong (Xlib_Thin.CWY)) /= 0 then
+               C.Oldy := C.Y;
+               C.Y := M.My + Integer (Cre.Y);
+            end if;
+            if (Cre.Value_Mask and Xlib_Thin.C_ULong (Xlib_Thin.CWWidth)) /= 0 then
+               C.Oldw := C.W;
+               C.W := Integer (Cre.Width);
+            end if;
+            if (Cre.Value_Mask and Xlib_Thin.C_ULong (Xlib_Thin.CWHeight)) /= 0 then
+               C.Oldh := C.H;
+               C.H := Integer (Cre.Height);
+            end if;
+            if (C.X + C.W) > M.Mx + M.Mw and then C.Isfloating then
+               C.X := M.Mx + (M.Mw / 2 - Dwm_Types.Width (C) / 2);
+            end if;
+            if (C.Y + C.H) > M.My + M.Mh and then C.Isfloating then
+               C.Y := M.My + (M.Mh / 2 - Dwm_Types.Height (C) / 2);
+            end if;
+            if (Cre.Value_Mask
+                  and (Xlib_Thin.C_ULong (Xlib_Thin.CWX) or Xlib_Thin.C_ULong (Xlib_Thin.CWY))) /= 0
+              and then (Cre.Value_Mask
+                          and (Xlib_Thin.C_ULong (Xlib_Thin.CWWidth) or Xlib_Thin.C_ULong (Xlib_Thin.CWHeight)))
+                        = 0
+            then
+               Configure (C);
+            end if;
+            if Dwm_Types.Is_Visible (C) then
+               Ignore := Xlib_Thin.XMoveResizeWindow
+                 (Dwm_State.Dpy, C.Win, Xlib_Thin.C_Int (C.X), Xlib_Thin.C_Int (C.Y),
+                  Xlib_Thin.C_UInt (C.W), Xlib_Thin.C_UInt (C.H));
+            end if;
+         else
+            Configure (C);
+         end if;
+      else
+         Wc.X := Cre.X;
+         Wc.Y := Cre.Y;
+         Wc.Width := Cre.Width;
+         Wc.Height := Cre.Height;
+         Wc.Border_Width := Cre.Border_Width;
+         Wc.Sibling := Cre.Above;
+         Wc.Stack_Mode := Cre.Detail;
+         Ignore := Xlib_Thin.XConfigureWindow
+           (Dwm_State.Dpy, Cre.Win, Xlib_Thin.C_UInt (Cre.Value_Mask), Wc'Access);
+      end if;
+      Ignore := Xlib_Thin.XSync (Dwm_State.Dpy, 0);
+   end Configurerequest;
+
+   function Culong_At (Base : System.Address; Index : Natural) return Xlib_Thin.C_ULong is
+      use type System.Storage_Elements.Storage_Offset;
+   begin
+      return To_Culong_Access
+        (Base + System.Storage_Elements.Storage_Offset (Index * 8)).all;
+   end Culong_At;
 
    procedure Detach (C : Dwm_Types.Client_Access) is
       Cur, Prev : Dwm_Types.Client_Access := null;
@@ -283,35 +361,6 @@ package body Dwm_Clients is
       end if;
    end Detachstack;
 
-   --------------------------------------------------------------------
-   --  configure                                                      --
-   --------------------------------------------------------------------
-
-   procedure Configure (C : Dwm_Types.Client_Access) is
-      Ev : aliased Xlib_Thin.XEvent;
-      Ce : Xlib_Thin.XConfigureEvent with Address => Ev'Address;
-      pragma Import (Ada, Ce);
-      Ignore : Xlib_Thin.C_Int;
-   begin
-      Ce.Event_Type := Xlib_Thin.ConfigureNotify;
-      Ce.Disp := Dwm_State.Dpy;
-      Ce.Event := C.Win;
-      Ce.Win := C.Win;
-      Ce.X := Xlib_Thin.C_Int (C.X);
-      Ce.Y := Xlib_Thin.C_Int (C.Y);
-      Ce.Width := Xlib_Thin.C_Int (C.W);
-      Ce.Height := Xlib_Thin.C_Int (C.H);
-      Ce.Border_Width := Xlib_Thin.C_Int (C.Bw);
-      Ce.Above := Xlib_Thin.None;
-      Ce.Override_Redirect := 0;
-      Ignore := Xlib_Thin.XSendEvent
-        (Dwm_State.Dpy, C.Win, 0, Xlib_Thin.StructureNotifyMask, Ev'Access);
-   end Configure;
-
-   --------------------------------------------------------------------
-   --  focus / unfocus / setfocus / grab*                             --
-   --------------------------------------------------------------------
-
    procedure Focus (C : Dwm_Types.Client_Access) is
       Cc : Dwm_Types.Client_Access := C;
       Ignore : Xlib_Thin.C_Int;
@@ -347,56 +396,6 @@ package body Dwm_Clients is
       Dwm_State.Selmon.Sel := Cc;
       Dwm_Bar.Drawbars;
    end Focus;
-
-   procedure Unfocus (C : Dwm_Types.Client_Access; Setfocus : Boolean) is
-      Ignore : Xlib_Thin.C_Int;
-   begin
-      if C = null then
-         return;
-      end if;
-      Grabbuttons (C, False);
-      Ignore := Xlib_Thin.XSetWindowBorder
-        (Dwm_State.Dpy, C.Win, Dwm_State.Scheme (Dwm_Types.Scheme_Norm) (Dwm_Types.Col_Border).Pixel);
-      if Setfocus then
-         Ignore := Xlib_Thin.XSetInputFocus
-           (Dwm_State.Dpy, Dwm_State.Root, Xlib_Thin.RevertToPointerRoot, Xlib_Thin.Current_Time);
-         Ignore := Xlib_Thin.XDeleteProperty
-           (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Netatom (Dwm_State.Net_Active_Window));
-      end if;
-   end Unfocus;
-
-   procedure Setfocus (C : Dwm_Types.Client_Access) is
-      Win_Buf : aliased Xlib_Thin.Window := C.Win;
-      Ignore  : Xlib_Thin.C_Int;
-      Ignore_Bool : Boolean;
-   begin
-      if not C.Neverfocus then
-         Ignore := Xlib_Thin.XSetInputFocus
-           (Dwm_State.Dpy, C.Win, Xlib_Thin.RevertToPointerRoot, Xlib_Thin.Current_Time);
-      end if;
-      Ignore := Xlib_Thin.XChangeProperty
-        (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Netatom (Dwm_State.Net_Active_Window),
-         Xlib_Thin.XA_WINDOW, 32, Xlib_Thin.PropModeReplace, Win_Buf'Address, 1);
-      Ignore_Bool := Sendevent (C, Dwm_State.Wmatom (Dwm_State.WM_Take_Focus));
-   end Setfocus;
-
-   procedure Updatenumlockmask is
-      Modmap : Xlib_Thin.XModifierKeymap_Access;
-      Ignore : Xlib_Thin.C_Int;
-   begin
-      Dwm_State.Numlockmask := 0;
-      Modmap := Xlib_Thin.XGetModifierMapping (Dwm_State.Dpy);
-      for I in 0 .. 7 loop
-         for J in 0 .. Integer (Modmap.Max_Keypermod) - 1 loop
-            if Keycode_At (Modmap.Modifiermap, I * Integer (Modmap.Max_Keypermod) + J)
-              = Xlib_Thin.XKeysymToKeycode (Dwm_State.Dpy, Keysyms.XK_Num_Lock)
-            then
-               Dwm_State.Numlockmask := Xlib_Thin.C_UInt (2 ** I);
-            end if;
-         end loop;
-      end loop;
-      Ignore := Xlib_Thin.XFreeModifiermap (Modmap);
-   end Updatenumlockmask;
 
    procedure Grabbuttons (C : Dwm_Types.Client_Access; Focused : Boolean) is
       Modifiers : constant array (0 .. 3) of Xlib_Thin.C_UInt :=
@@ -460,9 +459,12 @@ package body Dwm_Clients is
       Ignore := Xlib_Thin.XFree (Syms);
    end Grabkeys;
 
-   --------------------------------------------------------------------
-   --  manage / unmanage                                              --
-   --------------------------------------------------------------------
+   function Keycode_At (Base : System.Address; Index : Natural) return Xlib_Thin.KeyCode is
+      use type System.Storage_Elements.Storage_Offset;
+   begin
+      return To_Keycode_Access
+        (Base + System.Storage_Elements.Storage_Offset (Index)).all;
+   end Keycode_At;
 
    procedure Manage (Win : Xlib_Thin.Window; Wa : Xlib_Thin.XWindowAttributes) is
       C : constant Dwm_Types.Client_Access := new Dwm_Types.Client;
@@ -544,78 +546,20 @@ package body Dwm_Clients is
       Focus (null);
    end Manage;
 
-   procedure Unmanage (C : Dwm_Types.Client_Access; Destroyed : Boolean) is
-      M  : constant Dwm_Types.Monitor_Access := C.Mon;
-      Wc : aliased Xlib_Thin.XWindowChanges;
-      Cv : Dwm_Types.Client_Access := C;
-      Ignore : Xlib_Thin.C_Int;
-      Ignore_Handler : Xlib_Thin.XErrorHandler;
+   procedure Maprequest (Ev : access Xlib_Thin.XEvent) is
+      Mre : Xlib_Thin.XMapRequestEvent with Address => Ev.all'Address;
+      pragma Import (Ada, Mre);
+      Wa : aliased Xlib_Thin.XWindowAttributes;
+      Ok : Xlib_Thin.C_Int;
    begin
-      Detach (C);
-      Detachstack (C);
-      if not Destroyed then
-         Wc.Border_Width := Xlib_Thin.C_Int (C.Oldbw);
-         Ignore := Xlib_Thin.XGrabServer (Dwm_State.Dpy);
-         Ignore_Handler := Xlib_Thin.XSetErrorHandler (Xerrordummy'Access);
-         Ignore := Xlib_Thin.XSelectInput (Dwm_State.Dpy, C.Win, Xlib_Thin.NoEventMask);
-         Ignore := Xlib_Thin.XConfigureWindow (Dwm_State.Dpy, C.Win, Xlib_Thin.CWBorderWidth, Wc'Access);
-         Ignore := Xlib_Thin.XUngrabButton
-           (Dwm_State.Dpy, Xlib_Thin.Any_Button, Xlib_Thin.AnyModifier, C.Win);
-         Setclientstate (C, Xlib_Thin.WithdrawnState);
-         Ignore := Xlib_Thin.XSync (Dwm_State.Dpy, 0);
-         Ignore_Handler := Xlib_Thin.XSetErrorHandler (Xerror'Access);
-         Ignore := Xlib_Thin.XUngrabServer (Dwm_State.Dpy);
+      Ok := Xlib_Thin.XGetWindowAttributes (Dwm_State.Dpy, Mre.Win, Wa'Access);
+      if Ok = 0 or else Wa.Override_Redirect /= 0 then
+         return;
       end if;
-      Free_Client (Cv);
-      Focus (null);
-      Updateclientlist;
-      Arrange (M);
-   end Unmanage;
-
-   --------------------------------------------------------------------
-   --  X error handlers                                               --
-   --------------------------------------------------------------------
-
-   function Xerror
-     (Disp : Xlib_Thin.Display; Event : access Xlib_Thin.XErrorEvent) return Xlib_Thin.C_Int
-   is
-   begin
-      if Event.Error_Code = Xlib_Thin.BadWindow
-        or else (Event.Request_Code = Xlib_Thin.X_SetInputFocus and then Event.Error_Code = Xlib_Thin.BadMatch)
-        or else (Event.Request_Code = Xlib_Thin.X_PolyText8 and then Event.Error_Code = Xlib_Thin.BadDrawable)
-        or else (Event.Request_Code = Xlib_Thin.X_PolyFillRectangle
-                 and then Event.Error_Code = Xlib_Thin.BadDrawable)
-        or else (Event.Request_Code = Xlib_Thin.X_PolySegment and then Event.Error_Code = Xlib_Thin.BadDrawable)
-        or else (Event.Request_Code = Xlib_Thin.X_ConfigureWindow and then Event.Error_Code = Xlib_Thin.BadMatch)
-        or else (Event.Request_Code = Xlib_Thin.X_GrabButton and then Event.Error_Code = Xlib_Thin.BadAccess)
-        or else (Event.Request_Code = Xlib_Thin.X_GrabKey and then Event.Error_Code = Xlib_Thin.BadAccess)
-        or else (Event.Request_Code = Xlib_Thin.X_CopyArea and then Event.Error_Code = Xlib_Thin.BadDrawable)
-      then
-         return 0;
+      if Wintoclient (Mre.Win) = null then
+         Manage (Mre.Win, Wa);
       end if;
-      return Dwm_State.Xerrorxlib (Disp, Event);
-   end Xerror;
-
-   function Xerrordummy
-     (Disp : Xlib_Thin.Display; Event : access Xlib_Thin.XErrorEvent) return Xlib_Thin.C_Int
-   is
-      pragma Unreferenced (Disp, Event);
-   begin
-      return 0;
-   end Xerrordummy;
-
-   function Xerrorstart
-     (Disp : Xlib_Thin.Display; Event : access Xlib_Thin.XErrorEvent) return Xlib_Thin.C_Int
-   is
-      pragma Unreferenced (Disp, Event);
-   begin
-      Util.Die ("dwm: another window manager is already running");
-      return -1;
-   end Xerrorstart;
-
-   --------------------------------------------------------------------
-   --  nexttiled / pop                                                --
-   --------------------------------------------------------------------
+   end Maprequest;
 
    function Nexttiled (C : Dwm_Types.Client_Access) return Dwm_Types.Client_Access is
       Cur : Dwm_Types.Client_Access := C;
@@ -633,10 +577,6 @@ package body Dwm_Clients is
       Focus (C);
       Arrange (C.Mon);
    end Pop;
-
-   --------------------------------------------------------------------
-   --  resize / resizeclient / restack                                --
-   --------------------------------------------------------------------
 
    procedure Resize (C : Dwm_Types.Client_Access; X, Y, W, H : Integer; Interact : Boolean) is
       Nx : Integer := X;
@@ -707,9 +647,36 @@ package body Dwm_Clients is
       end loop;
    end Restack;
 
-   --------------------------------------------------------------------
-   --  sendmon / setclientstate / setfullscreen / seturgent / showhide --
-   --------------------------------------------------------------------
+   function Sendevent (C : Dwm_Types.Client_Access; Proto : Xlib_Thin.Atom) return Boolean is
+      Protocols : aliased System.Address := System.Null_Address;
+      N : aliased Xlib_Thin.C_Int;
+      Exists : Boolean := False;
+      Ev : aliased Xlib_Thin.XEvent;
+      Ce : Xlib_Thin.XClientMessageEvent with Address => Ev'Address;
+      pragma Import (Ada, Ce);
+      Ok : Xlib_Thin.C_Int;
+      Ignore : Xlib_Thin.C_Int;
+   begin
+      Ok := Xlib_Thin.XGetWMProtocols (Dwm_State.Dpy, C.Win, Protocols'Access, N'Access);
+      if Ok /= 0 then
+         for I in 0 .. Integer (N) - 1 loop
+            if Xlib_Thin.Atom (Culong_At (Protocols, I)) = Proto then
+               Exists := True;
+            end if;
+         end loop;
+         Ignore := Xlib_Thin.XFree (Protocols);
+      end if;
+      if Exists then
+         Ce.Event_Type := Xlib_Thin.ClientMessage;
+         Ce.Win := C.Win;
+         Ce.Message_Type := Dwm_State.Wmatom (Dwm_State.WM_Protocols);
+         Ce.Format := 32;
+         Ce.Data.L (0) := Xlib_Thin.C_Long (Proto);
+         Ce.Data.L (1) := Xlib_Thin.C_Long (Xlib_Thin.Current_Time);
+         Ignore := Xlib_Thin.XSendEvent (Dwm_State.Dpy, C.Win, 0, Xlib_Thin.NoEventMask, Ev'Access);
+      end if;
+      return Exists;
+   end Sendevent;
 
    procedure Sendmon (C : Dwm_Types.Client_Access; M : Dwm_Types.Monitor_Access) is
    begin
@@ -739,6 +706,21 @@ package body Dwm_Clients is
         (Dwm_State.Dpy, C.Win, Dwm_State.Wmatom (Dwm_State.WM_State), Dwm_State.Wmatom (Dwm_State.WM_State),
          32, Xlib_Thin.PropModeReplace, Data'Address, 2);
    end Setclientstate;
+
+   procedure Setfocus (C : Dwm_Types.Client_Access) is
+      Win_Buf : aliased Xlib_Thin.Window := C.Win;
+      Ignore  : Xlib_Thin.C_Int;
+      Ignore_Bool : Boolean;
+   begin
+      if not C.Neverfocus then
+         Ignore := Xlib_Thin.XSetInputFocus
+           (Dwm_State.Dpy, C.Win, Xlib_Thin.RevertToPointerRoot, Xlib_Thin.Current_Time);
+      end if;
+      Ignore := Xlib_Thin.XChangeProperty
+        (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Netatom (Dwm_State.Net_Active_Window),
+         Xlib_Thin.XA_WINDOW, 32, Xlib_Thin.PropModeReplace, Win_Buf'Address, 1);
+      Ignore_Bool := Sendevent (C, Dwm_State.Wmatom (Dwm_State.WM_Take_Focus));
+   end Setfocus;
 
    procedure Setfullscreen (C : Dwm_Types.Client_Access; Fullscreen : Boolean) is
       Fs_Atom : aliased Xlib_Thin.Atom;
@@ -809,44 +791,50 @@ package body Dwm_Clients is
       end if;
    end Showhide;
 
-   --------------------------------------------------------------------
-   --  sendevent                                                      --
-   --------------------------------------------------------------------
-
-   function Sendevent (C : Dwm_Types.Client_Access; Proto : Xlib_Thin.Atom) return Boolean is
-      Protocols : aliased System.Address := System.Null_Address;
-      N : aliased Xlib_Thin.C_Int;
-      Exists : Boolean := False;
-      Ev : aliased Xlib_Thin.XEvent;
-      Ce : Xlib_Thin.XClientMessageEvent with Address => Ev'Address;
-      pragma Import (Ada, Ce);
-      Ok : Xlib_Thin.C_Int;
+   procedure Unfocus (C : Dwm_Types.Client_Access; Setfocus : Boolean) is
       Ignore : Xlib_Thin.C_Int;
    begin
-      Ok := Xlib_Thin.XGetWMProtocols (Dwm_State.Dpy, C.Win, Protocols'Access, N'Access);
-      if Ok /= 0 then
-         for I in 0 .. Integer (N) - 1 loop
-            if Xlib_Thin.Atom (Culong_At (Protocols, I)) = Proto then
-               Exists := True;
-            end if;
-         end loop;
-         Ignore := Xlib_Thin.XFree (Protocols);
+      if C = null then
+         return;
       end if;
-      if Exists then
-         Ce.Event_Type := Xlib_Thin.ClientMessage;
-         Ce.Win := C.Win;
-         Ce.Message_Type := Dwm_State.Wmatom (Dwm_State.WM_Protocols);
-         Ce.Format := 32;
-         Ce.Data.L (0) := Xlib_Thin.C_Long (Proto);
-         Ce.Data.L (1) := Xlib_Thin.C_Long (Xlib_Thin.Current_Time);
-         Ignore := Xlib_Thin.XSendEvent (Dwm_State.Dpy, C.Win, 0, Xlib_Thin.NoEventMask, Ev'Access);
+      Grabbuttons (C, False);
+      Ignore := Xlib_Thin.XSetWindowBorder
+        (Dwm_State.Dpy, C.Win, Dwm_State.Scheme (Dwm_Types.Scheme_Norm) (Dwm_Types.Col_Border).Pixel);
+      if Setfocus then
+         Ignore := Xlib_Thin.XSetInputFocus
+           (Dwm_State.Dpy, Dwm_State.Root, Xlib_Thin.RevertToPointerRoot, Xlib_Thin.Current_Time);
+         Ignore := Xlib_Thin.XDeleteProperty
+           (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Netatom (Dwm_State.Net_Active_Window));
       end if;
-      return Exists;
-   end Sendevent;
+   end Unfocus;
 
-   --------------------------------------------------------------------
-   --  updateclientlist / updatesizehints / updatetitle / ...         --
-   --------------------------------------------------------------------
+   procedure Unmanage (C : Dwm_Types.Client_Access; Destroyed : Boolean) is
+      M  : constant Dwm_Types.Monitor_Access := C.Mon;
+      Wc : aliased Xlib_Thin.XWindowChanges;
+      Cv : Dwm_Types.Client_Access := C;
+      Ignore : Xlib_Thin.C_Int;
+      Ignore_Handler : Xlib_Thin.XErrorHandler;
+   begin
+      Detach (C);
+      Detachstack (C);
+      if not Destroyed then
+         Wc.Border_Width := Xlib_Thin.C_Int (C.Oldbw);
+         Ignore := Xlib_Thin.XGrabServer (Dwm_State.Dpy);
+         Ignore_Handler := Xlib_Thin.XSetErrorHandler (Xerrordummy'Access);
+         Ignore := Xlib_Thin.XSelectInput (Dwm_State.Dpy, C.Win, Xlib_Thin.NoEventMask);
+         Ignore := Xlib_Thin.XConfigureWindow (Dwm_State.Dpy, C.Win, Xlib_Thin.CWBorderWidth, Wc'Access);
+         Ignore := Xlib_Thin.XUngrabButton
+           (Dwm_State.Dpy, Xlib_Thin.Any_Button, Xlib_Thin.AnyModifier, C.Win);
+         Setclientstate (C, Xlib_Thin.WithdrawnState);
+         Ignore := Xlib_Thin.XSync (Dwm_State.Dpy, 0);
+         Ignore_Handler := Xlib_Thin.XSetErrorHandler (Xerror'Access);
+         Ignore := Xlib_Thin.XUngrabServer (Dwm_State.Dpy);
+      end if;
+      Free_Client (Cv);
+      Focus (null);
+      Updateclientlist;
+      Arrange (M);
+   end Unmanage;
 
    procedure Updateclientlist is
       M : Dwm_Types.Monitor_Access := Dwm_State.Mons;
@@ -868,6 +856,24 @@ package body Dwm_Clients is
          M := M.Next;
       end loop;
    end Updateclientlist;
+
+   procedure Updatenumlockmask is
+      Modmap : Xlib_Thin.XModifierKeymap_Access;
+      Ignore : Xlib_Thin.C_Int;
+   begin
+      Dwm_State.Numlockmask := 0;
+      Modmap := Xlib_Thin.XGetModifierMapping (Dwm_State.Dpy);
+      for I in 0 .. 7 loop
+         for J in 0 .. Integer (Modmap.Max_Keypermod) - 1 loop
+            if Keycode_At (Modmap.Modifiermap, I * Integer (Modmap.Max_Keypermod) + J)
+              = Xlib_Thin.XKeysymToKeycode (Dwm_State.Dpy, Keysyms.XK_Num_Lock)
+            then
+               Dwm_State.Numlockmask := Xlib_Thin.C_UInt (2 ** I);
+            end if;
+         end loop;
+      end loop;
+      Ignore := Xlib_Thin.XFreeModifiermap (Modmap);
+   end Updatenumlockmask;
 
    procedure Updatesizehints (C : Dwm_Types.Client_Access) is
       Size   : aliased Xlib_Thin.XSizeHints;
@@ -998,89 +1004,41 @@ package body Dwm_Clients is
       return null;
    end Wintoclient;
 
-   --------------------------------------------------------------------
-   --  configurerequest / maprequest                                  --
-   --------------------------------------------------------------------
-
-   procedure Configurerequest (Ev : access Xlib_Thin.XEvent) is
-      Cre : Xlib_Thin.XConfigureRequestEvent with Address => Ev.all'Address;
-      pragma Import (Ada, Cre);
-      C  : Dwm_Types.Client_Access;
-      M  : Dwm_Types.Monitor_Access;
-      Wc : aliased Xlib_Thin.XWindowChanges;
-      Ignore : Xlib_Thin.C_Int;
+   function Xerror
+     (Disp : Xlib_Thin.Display; Event : access Xlib_Thin.XErrorEvent) return Xlib_Thin.C_Int
+   is
    begin
-      C := Wintoclient (Cre.Win);
-      if C /= null then
-         if (Cre.Value_Mask and Xlib_Thin.C_ULong (Xlib_Thin.CWBorderWidth)) /= 0 then
-            C.Bw := Integer (Cre.Border_Width);
-         elsif C.Isfloating or else Dwm_State.Selmon.Lt (Dwm_State.Selmon.Sellt).Arrange = null then
-            M := C.Mon;
-            if (Cre.Value_Mask and Xlib_Thin.C_ULong (Xlib_Thin.CWX)) /= 0 then
-               C.Oldx := C.X;
-               C.X := M.Mx + Integer (Cre.X);
-            end if;
-            if (Cre.Value_Mask and Xlib_Thin.C_ULong (Xlib_Thin.CWY)) /= 0 then
-               C.Oldy := C.Y;
-               C.Y := M.My + Integer (Cre.Y);
-            end if;
-            if (Cre.Value_Mask and Xlib_Thin.C_ULong (Xlib_Thin.CWWidth)) /= 0 then
-               C.Oldw := C.W;
-               C.W := Integer (Cre.Width);
-            end if;
-            if (Cre.Value_Mask and Xlib_Thin.C_ULong (Xlib_Thin.CWHeight)) /= 0 then
-               C.Oldh := C.H;
-               C.H := Integer (Cre.Height);
-            end if;
-            if (C.X + C.W) > M.Mx + M.Mw and then C.Isfloating then
-               C.X := M.Mx + (M.Mw / 2 - Dwm_Types.Width (C) / 2);
-            end if;
-            if (C.Y + C.H) > M.My + M.Mh and then C.Isfloating then
-               C.Y := M.My + (M.Mh / 2 - Dwm_Types.Height (C) / 2);
-            end if;
-            if (Cre.Value_Mask
-                  and (Xlib_Thin.C_ULong (Xlib_Thin.CWX) or Xlib_Thin.C_ULong (Xlib_Thin.CWY))) /= 0
-              and then (Cre.Value_Mask
-                          and (Xlib_Thin.C_ULong (Xlib_Thin.CWWidth) or Xlib_Thin.C_ULong (Xlib_Thin.CWHeight)))
-                        = 0
-            then
-               Configure (C);
-            end if;
-            if Dwm_Types.Is_Visible (C) then
-               Ignore := Xlib_Thin.XMoveResizeWindow
-                 (Dwm_State.Dpy, C.Win, Xlib_Thin.C_Int (C.X), Xlib_Thin.C_Int (C.Y),
-                  Xlib_Thin.C_UInt (C.W), Xlib_Thin.C_UInt (C.H));
-            end if;
-         else
-            Configure (C);
-         end if;
-      else
-         Wc.X := Cre.X;
-         Wc.Y := Cre.Y;
-         Wc.Width := Cre.Width;
-         Wc.Height := Cre.Height;
-         Wc.Border_Width := Cre.Border_Width;
-         Wc.Sibling := Cre.Above;
-         Wc.Stack_Mode := Cre.Detail;
-         Ignore := Xlib_Thin.XConfigureWindow
-           (Dwm_State.Dpy, Cre.Win, Xlib_Thin.C_UInt (Cre.Value_Mask), Wc'Access);
+      if Event.Error_Code = Xlib_Thin.BadWindow
+        or else (Event.Request_Code = Xlib_Thin.X_SetInputFocus and then Event.Error_Code = Xlib_Thin.BadMatch)
+        or else (Event.Request_Code = Xlib_Thin.X_PolyText8 and then Event.Error_Code = Xlib_Thin.BadDrawable)
+        or else (Event.Request_Code = Xlib_Thin.X_PolyFillRectangle
+                 and then Event.Error_Code = Xlib_Thin.BadDrawable)
+        or else (Event.Request_Code = Xlib_Thin.X_PolySegment and then Event.Error_Code = Xlib_Thin.BadDrawable)
+        or else (Event.Request_Code = Xlib_Thin.X_ConfigureWindow and then Event.Error_Code = Xlib_Thin.BadMatch)
+        or else (Event.Request_Code = Xlib_Thin.X_GrabButton and then Event.Error_Code = Xlib_Thin.BadAccess)
+        or else (Event.Request_Code = Xlib_Thin.X_GrabKey and then Event.Error_Code = Xlib_Thin.BadAccess)
+        or else (Event.Request_Code = Xlib_Thin.X_CopyArea and then Event.Error_Code = Xlib_Thin.BadDrawable)
+      then
+         return 0;
       end if;
-      Ignore := Xlib_Thin.XSync (Dwm_State.Dpy, 0);
-   end Configurerequest;
+      return Dwm_State.Xerrorxlib (Disp, Event);
+   end Xerror;
 
-   procedure Maprequest (Ev : access Xlib_Thin.XEvent) is
-      Mre : Xlib_Thin.XMapRequestEvent with Address => Ev.all'Address;
-      pragma Import (Ada, Mre);
-      Wa : aliased Xlib_Thin.XWindowAttributes;
-      Ok : Xlib_Thin.C_Int;
+   function Xerrordummy
+     (Disp : Xlib_Thin.Display; Event : access Xlib_Thin.XErrorEvent) return Xlib_Thin.C_Int
+   is
+      pragma Unreferenced (Disp, Event);
    begin
-      Ok := Xlib_Thin.XGetWindowAttributes (Dwm_State.Dpy, Mre.Win, Wa'Access);
-      if Ok = 0 or else Wa.Override_Redirect /= 0 then
-         return;
-      end if;
-      if Wintoclient (Mre.Win) = null then
-         Manage (Mre.Win, Wa);
-      end if;
-   end Maprequest;
+      return 0;
+   end Xerrordummy;
+
+   function Xerrorstart
+     (Disp : Xlib_Thin.Display; Event : access Xlib_Thin.XErrorEvent) return Xlib_Thin.C_Int
+   is
+      pragma Unreferenced (Disp, Event);
+   begin
+      Util.Die ("dwm: another window manager is already running");
+      return -1;
+   end Xerrorstart;
 
 end Dwm_Clients;

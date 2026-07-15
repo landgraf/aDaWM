@@ -19,7 +19,8 @@ package Config is
    Showbar   : constant Boolean := True;
    Topbar    : constant Boolean := True;
 
-   Fonts : constant Dwm_Types.Command := (1 => new String'("monospace:size=10"));
+   Font_Name : aliased constant String := "monospace:size=10";
+   Fonts : constant Dwm_Types.Command := (1 => Font_Name'Access);
 
    Col_Gray1 : aliased constant String := "#222222";
    Col_Gray2 : aliased constant String := "#444444";

@@ -24,8 +24,6 @@ package body Dwm_Main is
    use type Xlib_Thin.C_Int;
    use type Xlib_Thin.C_ULong;
    use type Xlib_Thin.C_UInt;
-   use type Xlib_Thin.C_Mask;
-   use type Xlib_Thin.XID;
    use type System.Address;
    use type Interfaces.C.Strings.chars_ptr;
    use type Drw.Fnt_Access;
@@ -54,6 +52,12 @@ package body Dwm_Main is
    type Window_Access is access all Xlib_Thin.Window;
    function To_Window_Access is new Ada.Unchecked_Conversion (System.Address, Window_Access);
 
+   --  Reads the Index'th Window (8-byte XID) from a flat Window* array
+   --  address, as returned by XQueryTree. Private; spec given here
+   --  (rather than in dwm_main.ads) since it's not part of the public
+   --  API.
+   function Window_At (Base : System.Address; Index : Natural) return Xlib_Thin.Window;
+
    --  Given library-level accessibility so Cleanup can point
    --  Selmon.Lt at it (dwm.c's local `Layout foo = {"", NULL}` works
    --  in C only because C never checks pointer lifetimes; the pointer
@@ -65,12 +69,9 @@ package body Dwm_Main is
    Cleanup_Foo : aliased constant Dwm_Types.Layout :=
      (Symbol => Cleanup_Foo_Symbol'Access, Arrange => null);
 
-   function Window_At (Base : System.Address; Index : Natural) return Xlib_Thin.Window is
-      use type System.Storage_Elements.Storage_Offset;
-   begin
-      return To_Window_Access
-        (Base + System.Storage_Elements.Storage_Offset (Index) * 8).all;
-   end Window_At;
+   --------------------------------------------------------------------
+   --  Subprogram bodies (alphabetical order; -gnatyo)                --
+   --------------------------------------------------------------------
 
    procedure Checkotherwm is
       Ignore_Handler : Xlib_Thin.XErrorHandler;
@@ -85,6 +86,135 @@ package body Dwm_Main is
       Ignore := Xlib_Thin.XSync (Dwm_State.Dpy, 0);
    end Checkotherwm;
 
+   procedure Cleanup is
+      A : constant Dwm_Types.Arg := (Ui => not Dwm_Types.Tag_Mask'(0), others => <>);
+      M : Dwm_Types.Monitor_Access;
+      Ignore : Xlib_Thin.C_Int;
+   begin
+      Dwm_Actions.View (A);
+      Dwm_State.Selmon.Lt (Dwm_State.Selmon.Sellt) := Cleanup_Foo'Access;
+      M := Dwm_State.Mons;
+      while M /= null loop
+         while M.Stack /= null loop
+            Dwm_Clients.Unmanage (M.Stack, False);
+         end loop;
+         M := M.Next;
+      end loop;
+      Ignore := Xlib_Thin.XUngrabKey (Dwm_State.Dpy, Xlib_Thin.Any_Key, Xlib_Thin.AnyModifier, Dwm_State.Root);
+      while Dwm_State.Mons /= null loop
+         Dwm_Monitors.Cleanupmon (Dwm_State.Mons);
+      end loop;
+      for K in Dwm_State.Cursor_Kind loop
+         Drw.Cur_Free (Dwm_State.Dc, Dwm_State.Cursors (K));
+      end loop;
+      for S in Dwm_Types.Scheme_Kind loop
+         Drw.Scm_Free (Dwm_State.Dc, Dwm_State.Scheme (S));
+      end loop;
+      Ignore := Xlib_Thin.XDestroyWindow (Dwm_State.Dpy, Dwm_State.Wmcheckwin);
+      Drw.Free (Dwm_State.Dc);
+      Ignore := Xlib_Thin.XSync (Dwm_State.Dpy, 0);
+      Ignore := Xlib_Thin.XSetInputFocus
+        (Dwm_State.Dpy, Xlib_Thin.Pointer_Root, Xlib_Thin.RevertToPointerRoot, Xlib_Thin.Current_Time);
+      Ignore := Xlib_Thin.XDeleteProperty
+        (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Netatom (Dwm_State.Net_Active_Window));
+   end Cleanup;
+
+   procedure Main is
+      Ignore : Xlib_Thin.C_Int;
+      Locale_Ptr : constant Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String ("");
+      Locale_Result : Interfaces.C.Strings.chars_ptr;
+   begin
+      if Ada.Command_Line.Argument_Count = 1 and then Ada.Command_Line.Argument (1) = "-v" then
+         Util.Die ("dwm-" & Dwm_State.Version);
+      elsif Ada.Command_Line.Argument_Count /= 0 then
+         Util.Die ("usage: dwm [-v]");
+      end if;
+
+      Locale_Result := C_Setlocale (LC_CTYPE, Locale_Ptr);
+      if Locale_Result = Interfaces.C.Strings.Null_Ptr or else Xlib_Thin.XSupportsLocale = 0 then
+         Ada.Text_IO.Put_Line (Ada.Text_IO.Standard_Error, "warning: no locale support");
+      end if;
+
+      Dwm_State.Dpy := Xlib_Thin.XOpenDisplay (Interfaces.C.Strings.Null_Ptr);
+      if Dwm_State.Dpy = System.Null_Address then
+         Util.Die ("dwm: cannot open display");
+      end if;
+      Checkotherwm;
+      Setup;
+      Scan;
+      Run;
+      Cleanup;
+      Ignore := Xlib_Thin.XCloseDisplay (Dwm_State.Dpy);
+   end Main;
+
+   procedure Run is
+      Ev  : aliased Xlib_Thin.XEvent;
+      Any : Xlib_Thin.XAnyEvent with Address => Ev'Address;
+      pragma Import (Ada, Any);
+      Ignore : Xlib_Thin.C_Int;
+   begin
+      Ignore := Xlib_Thin.XSync (Dwm_State.Dpy, 0);
+      while Dwm_State.Running loop
+         Ignore := Xlib_Thin.XNextEvent (Dwm_State.Dpy, Ev'Access);
+         if Any.Event_Type in 0 .. Xlib_Thin.LASTEvent - 1 then
+            declare
+               H : constant Dwm_Types.Event_Handler := Dwm_Events.Handler (Integer (Any.Event_Type));
+            begin
+               if H /= null then
+                  H (Ev'Access);
+               end if;
+            end;
+         end if;
+      end loop;
+   end Run;
+
+   procedure Scan is
+      D1, D2 : aliased Xlib_Thin.Window;
+      Wins : aliased System.Address := System.Null_Address;
+      Num : aliased Xlib_Thin.C_UInt;
+      Wa : aliased Xlib_Thin.XWindowAttributes;
+      Ok : Xlib_Thin.C_Int;
+      Ignore : Xlib_Thin.C_Int;
+   begin
+      Ok := Xlib_Thin.XQueryTree (Dwm_State.Dpy, Dwm_State.Root, D1'Access, D2'Access, Wins'Access, Num'Access);
+      if Ok = 0 then
+         return;
+      end if;
+      for I in 0 .. Integer (Num) - 1 loop
+         declare
+            W : constant Xlib_Thin.Window := Window_At (Wins, I);
+         begin
+            Ok := Xlib_Thin.XGetWindowAttributes (Dwm_State.Dpy, W, Wa'Access);
+            if Ok /= 0 and then Wa.Override_Redirect = 0
+              and then Xlib_Thin.XGetTransientForHint (Dwm_State.Dpy, W, D1'Access) = 0
+            then
+               if Wa.Map_State = Xlib_Thin.IsViewable
+                 or else Dwm_Xutil.Getstate (W) = Xlib_Thin.IconicState
+               then
+                  Dwm_Clients.Manage (W, Wa);
+               end if;
+            end if;
+         end;
+      end loop;
+      for I in 0 .. Integer (Num) - 1 loop
+         declare
+            W : constant Xlib_Thin.Window := Window_At (Wins, I);
+         begin
+            Ok := Xlib_Thin.XGetWindowAttributes (Dwm_State.Dpy, W, Wa'Access);
+            if Ok /= 0
+              and then Xlib_Thin.XGetTransientForHint (Dwm_State.Dpy, W, D1'Access) /= 0
+              and then (Wa.Map_State = Xlib_Thin.IsViewable
+                          or else Dwm_Xutil.Getstate (W) = Xlib_Thin.IconicState)
+            then
+               Dwm_Clients.Manage (W, Wa);
+            end if;
+         end;
+      end loop;
+      if Wins /= System.Null_Address then
+         Ignore := Xlib_Thin.XFree (Wins);
+      end if;
+   end Scan;
+
    procedure Setup is
       Utf8string : Xlib_Thin.Atom;
       Wa : aliased Xlib_Thin.XSetWindowAttributes;
@@ -93,6 +223,8 @@ package body Dwm_Main is
       Ignore : Xlib_Thin.C_Int;
       Ignore_Bool : Boolean;
       Ignore_Addr : System.Address;
+
+      function Atom (Name : String) return Xlib_Thin.Atom;
 
       function Atom (Name : String) return Xlib_Thin.Atom is
          C_Name : Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String (Name);
@@ -185,133 +317,11 @@ package body Dwm_Main is
       Dwm_Clients.Focus (null);
    end Setup;
 
-   procedure Scan is
-      D1, D2 : aliased Xlib_Thin.Window;
-      Wins : aliased System.Address := System.Null_Address;
-      Num : aliased Xlib_Thin.C_UInt;
-      Wa : aliased Xlib_Thin.XWindowAttributes;
-      Ok : Xlib_Thin.C_Int;
-      Ignore : Xlib_Thin.C_Int;
+   function Window_At (Base : System.Address; Index : Natural) return Xlib_Thin.Window is
+      use type System.Storage_Elements.Storage_Offset;
    begin
-      Ok := Xlib_Thin.XQueryTree (Dwm_State.Dpy, Dwm_State.Root, D1'Access, D2'Access, Wins'Access, Num'Access);
-      if Ok = 0 then
-         return;
-      end if;
-      for I in 0 .. Integer (Num) - 1 loop
-         declare
-            W : constant Xlib_Thin.Window := Window_At (Wins, I);
-         begin
-            Ok := Xlib_Thin.XGetWindowAttributes (Dwm_State.Dpy, W, Wa'Access);
-            if Ok /= 0 and then Wa.Override_Redirect = 0
-              and then Xlib_Thin.XGetTransientForHint (Dwm_State.Dpy, W, D1'Access) = 0
-            then
-               if Wa.Map_State = Xlib_Thin.IsViewable
-                 or else Dwm_Xutil.Getstate (W) = Xlib_Thin.IconicState
-               then
-                  Dwm_Clients.Manage (W, Wa);
-               end if;
-            end if;
-         end;
-      end loop;
-      for I in 0 .. Integer (Num) - 1 loop
-         declare
-            W : constant Xlib_Thin.Window := Window_At (Wins, I);
-         begin
-            Ok := Xlib_Thin.XGetWindowAttributes (Dwm_State.Dpy, W, Wa'Access);
-            if Ok /= 0
-              and then Xlib_Thin.XGetTransientForHint (Dwm_State.Dpy, W, D1'Access) /= 0
-              and then (Wa.Map_State = Xlib_Thin.IsViewable
-                          or else Dwm_Xutil.Getstate (W) = Xlib_Thin.IconicState)
-            then
-               Dwm_Clients.Manage (W, Wa);
-            end if;
-         end;
-      end loop;
-      if Wins /= System.Null_Address then
-         Ignore := Xlib_Thin.XFree (Wins);
-      end if;
-   end Scan;
-
-   procedure Run is
-      Ev  : aliased Xlib_Thin.XEvent;
-      Any : Xlib_Thin.XAnyEvent with Address => Ev'Address;
-      pragma Import (Ada, Any);
-      Ignore : Xlib_Thin.C_Int;
-   begin
-      Ignore := Xlib_Thin.XSync (Dwm_State.Dpy, 0);
-      while Dwm_State.Running loop
-         Ignore := Xlib_Thin.XNextEvent (Dwm_State.Dpy, Ev'Access);
-         if Any.Event_Type in 0 .. Xlib_Thin.LASTEvent - 1 then
-            declare
-               H : constant Dwm_Types.Event_Handler := Dwm_Events.Handler (Integer (Any.Event_Type));
-            begin
-               if H /= null then
-                  H (Ev'Access);
-               end if;
-            end;
-         end if;
-      end loop;
-   end Run;
-
-   procedure Cleanup is
-      A : constant Dwm_Types.Arg := (Ui => not Dwm_Types.Tag_Mask'(0), others => <>);
-      M : Dwm_Types.Monitor_Access;
-      Ignore : Xlib_Thin.C_Int;
-   begin
-      Dwm_Actions.View (A);
-      Dwm_State.Selmon.Lt (Dwm_State.Selmon.Sellt) := Cleanup_Foo'Access;
-      M := Dwm_State.Mons;
-      while M /= null loop
-         while M.Stack /= null loop
-            Dwm_Clients.Unmanage (M.Stack, False);
-         end loop;
-         M := M.Next;
-      end loop;
-      Ignore := Xlib_Thin.XUngrabKey (Dwm_State.Dpy, Xlib_Thin.Any_Key, Xlib_Thin.AnyModifier, Dwm_State.Root);
-      while Dwm_State.Mons /= null loop
-         Dwm_Monitors.Cleanupmon (Dwm_State.Mons);
-      end loop;
-      for K in Dwm_State.Cursor_Kind loop
-         Drw.Cur_Free (Dwm_State.Dc, Dwm_State.Cursors (K));
-      end loop;
-      for S in Dwm_Types.Scheme_Kind loop
-         Drw.Scm_Free (Dwm_State.Dc, Dwm_State.Scheme (S));
-      end loop;
-      Ignore := Xlib_Thin.XDestroyWindow (Dwm_State.Dpy, Dwm_State.Wmcheckwin);
-      Drw.Free (Dwm_State.Dc);
-      Ignore := Xlib_Thin.XSync (Dwm_State.Dpy, 0);
-      Ignore := Xlib_Thin.XSetInputFocus
-        (Dwm_State.Dpy, Xlib_Thin.Pointer_Root, Xlib_Thin.RevertToPointerRoot, Xlib_Thin.Current_Time);
-      Ignore := Xlib_Thin.XDeleteProperty
-        (Dwm_State.Dpy, Dwm_State.Root, Dwm_State.Netatom (Dwm_State.Net_Active_Window));
-   end Cleanup;
-
-   procedure Main is
-      Ok : Xlib_Thin.C_Int;
-      Locale_Ptr : constant Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String ("");
-      Locale_Result : Interfaces.C.Strings.chars_ptr;
-   begin
-      if Ada.Command_Line.Argument_Count = 1 and then Ada.Command_Line.Argument (1) = "-v" then
-         Util.Die ("dwm-" & Dwm_State.Version);
-      elsif Ada.Command_Line.Argument_Count /= 0 then
-         Util.Die ("usage: dwm [-v]");
-      end if;
-
-      Locale_Result := C_Setlocale (LC_CTYPE, Locale_Ptr);
-      if Locale_Result = Interfaces.C.Strings.Null_Ptr or else Xlib_Thin.XSupportsLocale = 0 then
-         Ada.Text_IO.Put_Line (Ada.Text_IO.Standard_Error, "warning: no locale support");
-      end if;
-
-      Dwm_State.Dpy := Xlib_Thin.XOpenDisplay (Interfaces.C.Strings.Null_Ptr);
-      if Dwm_State.Dpy = System.Null_Address then
-         Util.Die ("dwm: cannot open display");
-      end if;
-      Checkotherwm;
-      Setup;
-      Scan;
-      Run;
-      Cleanup;
-      Ok := Xlib_Thin.XCloseDisplay (Dwm_State.Dpy);
-   end Main;
+      return To_Window_Access
+        (Base + System.Storage_Elements.Storage_Offset (Index) * 8).all;
+   end Window_At;
 
 end Dwm_Main;

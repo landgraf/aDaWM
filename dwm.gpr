@@ -14,9 +14,12 @@ project Dwm is
 
    package Compiler is
       --  Widen the max-line-length style check from Alire's default 79
-      --  columns; this project's C-binding specs read better unwrapped.
+      --  columns (this project's C-binding specs read better
+      --  unwrapped), then enable every remaining GNAT style check
+      --  Alire's own defaults leave off (d, o, s), and turn on all
+      --  optional warnings with warnings promoted to errors.
       for Default_Switches ("Ada") use Dwm_Config.Ada_Compiler_Switches &
-        ("-gnatyM120");
+        ("-gnatyM120", "-gnatyd", "-gnatyo", "-gnatys", "-gnatwa", "-gnatwe");
    end Compiler;
 
    package Binder is

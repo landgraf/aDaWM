@@ -7,7 +7,6 @@ with Util;
 package body Drw is
 
    use type Xlib_Thin.C_Int;
-   use type Xlib_Thin.C_UInt;
    use type Xlib_Thin.XID;
    use type Xft_Thin.XftFont_Access;
    use type System.Address;
@@ -22,10 +21,6 @@ package body Drw is
 
    function New_String_Ptr (S : String) return Interfaces.C.Strings.chars_ptr
      renames Interfaces.C.Strings.New_String;
-
-   --------------------------------------------------------------------
-   --  UTF-8 decode                                                   --
-   --------------------------------------------------------------------
 
    subtype Codepoint_Type is Interfaces.Unsigned_32;
    UTF_Invalid : constant Codepoint_Type := 16#FFFD#;
@@ -43,43 +38,48 @@ package body Drw is
    --  (UTF_Invalid on error), and whether the sequence was invalid.
    procedure Utf8_Decode
      (S : String; Pos : Positive; Codepoint : out Codepoint_Type;
-      Length : out Natural; Err : out Boolean)
-   is
-      B0  : constant Natural := Character'Pos (S (Pos));
-      Len : constant Natural := Lens (B0 / 8);
-      Cp  : Codepoint_Type;
+      Length : out Natural; Err : out Boolean);
+
+   --  Implementation detail of Fontset_Create; library users should use
+   --  Fontset_Create instead (mirrors xfont_create()'s C comment).
+   function Xfont_Create
+     (D : Context_Access; Fontname : String; Fontpattern : Xft_Thin.FcPattern) return Fnt_Access;
+
+   procedure Xfont_Free (Font : in out Fnt_Access);
+
+   --------------------------------------------------------------------
+   --  Color schemes                                                  --
+   --------------------------------------------------------------------
+
+   procedure Clr_Create (D : Context_Access; Dest : access Xft_Thin.XftColor; Clrname : String) is
+      Vis : constant Xlib_Thin.Visual := Xlib_Thin.XDefaultVisual (D.Disp, D.Screen);
+      Cmap : constant Xlib_Thin.Colormap := Xlib_Thin.XDefaultColormap (D.Disp, D.Screen);
+      C_Name : Interfaces.C.Strings.chars_ptr := New_String_Ptr (Clrname);
+      Ok : Xlib_Thin.C_Int;
    begin
-      Codepoint := UTF_Invalid;
-      Err := True;
-      if Len = 0 then
-         Length := 1;
+      pragma Warnings (Off, "condition is always False");
+      if D = null or else Dest = null then
          return;
       end if;
-      Cp := Codepoint_Type (B0) and Leading_Mask (Len);
-      for I in 1 .. Len - 1 loop
-         if Pos + I > S'Last then
-            Length := I;
-            return;
-         end if;
-         declare
-            Bi : constant Natural := Character'Pos (S (Pos + I));
-         begin
-            if Bi = 0 or else (Bi / 64) /= 2 then  --  (Bi & 0xC0) /= 0x80
-               Length := I;
-               return;
-            end if;
-            Cp := (Cp * 64) or Codepoint_Type (Bi mod 64);
-         end;
-      end loop;
-      if Cp > 16#10FFFF# or else (Cp / 2048) = 16#1B# or else Cp < Overlong (Len)
-      then
-         Length := Len;
+      pragma Warnings (On, "condition is always False");
+      Ok := Xft_Thin.XftColorAllocName (D.Disp, Vis, Cmap, C_Name, Dest);
+      Interfaces.C.Strings.Free (C_Name);
+      if Ok = 0 then
+         Util.Die ("error, cannot allocate color '" & Clrname & "'");
+      end if;
+   end Clr_Create;
+
+   procedure Clr_Free (D : Context_Access; C : access Xft_Thin.XftColor) is
+      Vis : constant Xlib_Thin.Visual := Xlib_Thin.XDefaultVisual (D.Disp, D.Screen);
+      Cmap : constant Xlib_Thin.Colormap := Xlib_Thin.XDefaultColormap (D.Disp, D.Screen);
+   begin
+      pragma Warnings (Off, "condition is always False");
+      if D = null or else C = null then
          return;
       end if;
-      Err := False;
-      Codepoint := Cp;
-      Length := Len;
-   end Utf8_Decode;
+      pragma Warnings (On, "condition is always False");
+      Xft_Thin.XftColorFree (D.Disp, Vis, Cmap, C);
+   end Clr_Free;
 
    --------------------------------------------------------------------
    --  Context / fontset lifecycle                                    --
@@ -106,85 +106,42 @@ package body Drw is
       return D;
    end Create;
 
-   procedure Resize (D : Context_Access; W, H : Natural) is
-      Ignore : Xlib_Thin.C_Int;
+   function Cur_Create (D : Context_Access; Shape : Xlib_Thin.C_UInt) return Cur_Access is
+      C : Cur_Access;
    begin
       if D = null then
-         return;
+         return null;
       end if;
-      D.W := W;
-      D.H := H;
-      if D.Drawable /= Xlib_Thin.None then
-         Ignore := Xlib_Thin.XFreePixmap (D.Disp, D.Drawable);
-      end if;
-      D.Drawable := Xlib_Thin.XCreatePixmap
-        (D.Disp, D.Root, Xlib_Thin.C_UInt (W), Xlib_Thin.C_UInt (H),
-         Xlib_Thin.C_UInt (Xlib_Thin.XDefaultDepth (D.Disp, D.Screen)));
-   end Resize;
+      C := new Cur;
+      C.Cursor := Xlib_Thin.XCreateFontCursor (D.Disp, Shape);
+      return C;
+   end Cur_Create;
 
-   procedure Free (D : in out Context_Access) is
+   procedure Cur_Free (D : Context_Access; C : in out Cur_Access) is
       Ignore : Xlib_Thin.C_Int;
    begin
-      Ignore := Xlib_Thin.XFreePixmap (D.Disp, D.Drawable);
-      Ignore := Xlib_Thin.XFreeGC (D.Disp, D.Gc);
-      Fontset_Free (D.Fonts);
-      Free_Context (D);
-   end Free;
-
-   --  Implementation detail of Fontset_Create; library users should use
-   --  Fontset_Create instead (mirrors xfont_create()'s C comment).
-   function Xfont_Create
-     (D : Context_Access; Fontname : String; Fontpattern : Xft_Thin.FcPattern) return Fnt_Access
-   is
-      Xfont   : Xft_Thin.XftFont_Access := null;
-      Pattern : Xft_Thin.FcPattern := System.Null_Address;
-      Font    : Fnt_Access;
-   begin
-      if Fontname'Length > 0 then
-         declare
-            C_Name : Interfaces.C.Strings.chars_ptr := New_String_Ptr (Fontname);
-         begin
-            Xfont := Xft_Thin.XftFontOpenName (D.Disp, D.Screen, C_Name);
-            if Xfont = null then
-               Interfaces.C.Strings.Free (C_Name);
-               return null;
-            end if;
-            Pattern := Xft_Thin.FcNameParse (C_Name);
-            if Pattern = System.Null_Address then
-               Xft_Thin.XftFontClose (D.Disp, Xfont);
-               Interfaces.C.Strings.Free (C_Name);
-               return null;
-            end if;
-            Interfaces.C.Strings.Free (C_Name);
-         end;
-      elsif Fontpattern /= System.Null_Address then
-         Xfont := Xft_Thin.XftFontOpenPattern (D.Disp, Fontpattern);
-         if Xfont = null then
-            return null;
-         end if;
-      else
-         Util.Die ("no font specified.");
-      end if;
-
-      Font := new Fnt;
-      Font.Xfont := Xfont;
-      Font.Pattern := Pattern;
-      Font.H := Natural (Xfont.Ascent + Xfont.Descent);
-      Font.Disp := D.Disp;
-      return Font;
-   end Xfont_Create;
-
-   procedure Xfont_Free (Font : in out Fnt_Access) is
-   begin
-      if Font = null then
+      if C = null then
          return;
       end if;
-      if Font.Pattern /= System.Null_Address then
-         Xft_Thin.FcPatternDestroy (Font.Pattern);
+      Ignore := Xlib_Thin.XFreeCursor (D.Disp, C.Cursor);
+      Free_Cur (C);
+   end Cur_Free;
+
+   procedure Font_Getexts
+     (Font : Fnt_Access; Txt : String; Len : Natural; W : out Natural; H : out Natural)
+   is
+      Ext : aliased Xft_Thin.XGlyphInfo;
+   begin
+      W := 0;
+      H := 0;
+      if Font = null or else Txt'Length = 0 then
+         return;
       end if;
-      Xft_Thin.XftFontClose (Font.Disp, Font.Xfont);
-      Free_Fnt (Font);
-   end Xfont_Free;
+      Xft_Thin.XftTextExtentsUtf8
+        (Font.Disp, Font.Xfont, Txt (Txt'First)'Address, Xlib_Thin.C_Int (Len), Ext'Access);
+      W := Natural (Ext.X_Off);
+      H := Font.H;
+   end Font_Getexts;
 
    function Fontset_Create (D : Context_Access; Fonts : Dwm_Types.Command) return Fnt_Access is
       Ret : Fnt_Access := null;
@@ -214,35 +171,90 @@ package body Drw is
       end if;
    end Fontset_Free;
 
-   --------------------------------------------------------------------
-   --  Color schemes                                                  --
-   --------------------------------------------------------------------
-
-   procedure Clr_Create (D : Context_Access; Dest : access Xft_Thin.XftColor; Clrname : String) is
-      Vis : constant Xlib_Thin.Visual := Xlib_Thin.XDefaultVisual (D.Disp, D.Screen);
-      Cmap : constant Xlib_Thin.Colormap := Xlib_Thin.XDefaultColormap (D.Disp, D.Screen);
-      C_Name : Interfaces.C.Strings.chars_ptr := New_String_Ptr (Clrname);
-      Ok : Xlib_Thin.C_Int;
+   function Fontset_Getwidth (D : Context_Access; Txt : String) return Natural is
    begin
-      if D = null or else Dest = null then
+      if D = null or else D.Fonts = null or else Txt'Length = 0 then
+         return 0;
+      end if;
+      return Text (D, 0, 0, 0, 0, 0, Txt, 0);
+   end Fontset_Getwidth;
+
+   function Fontset_Getwidth_Clamp (D : Context_Access; Txt : String; N : Natural) return Natural is
+      Tmp : Natural := 0;
+   begin
+      if D /= null and then D.Fonts /= null and then Txt'Length > 0 and then N > 0 then
+         Tmp := Drw.Text (D, 0, 0, 0, 0, 0, Txt, N);
+      end if;
+      return Natural'Min (N, Tmp);
+   end Fontset_Getwidth_Clamp;
+
+   procedure Free (D : in out Context_Access) is
+      Ignore : Xlib_Thin.C_Int;
+   begin
+      Ignore := Xlib_Thin.XFreePixmap (D.Disp, D.Drawable);
+      Ignore := Xlib_Thin.XFreeGC (D.Disp, D.Gc);
+      Fontset_Free (D.Fonts);
+      Free_Context (D);
+   end Free;
+
+   procedure Map
+     (D : Context_Access; Win : Xlib_Thin.Window; X, Y : Integer; W, H : Natural)
+   is
+      Ignore : Xlib_Thin.C_Int;
+   begin
+      if D = null then
          return;
       end if;
-      Ok := Xft_Thin.XftColorAllocName (D.Disp, Vis, Cmap, C_Name, Dest);
-      Interfaces.C.Strings.Free (C_Name);
-      if Ok = 0 then
-         Util.Die ("error, cannot allocate color '" & Clrname & "'");
-      end if;
-   end Clr_Create;
+      Ignore := Xlib_Thin.XCopyArea
+        (D.Disp, D.Drawable, Xlib_Thin.Drawable (Win), D.Gc,
+         Xlib_Thin.C_Int (X), Xlib_Thin.C_Int (Y), Xlib_Thin.C_UInt (W), Xlib_Thin.C_UInt (H),
+         Xlib_Thin.C_Int (X), Xlib_Thin.C_Int (Y));
+      Ignore := Xlib_Thin.XSync (D.Disp, 0);
+   end Map;
 
-   procedure Clr_Free (D : Context_Access; C : access Xft_Thin.XftColor) is
-      Vis : constant Xlib_Thin.Visual := Xlib_Thin.XDefaultVisual (D.Disp, D.Screen);
-      Cmap : constant Xlib_Thin.Colormap := Xlib_Thin.XDefaultColormap (D.Disp, D.Screen);
+   --------------------------------------------------------------------
+   --  Drawing                                                        --
+   --------------------------------------------------------------------
+
+   procedure Rect
+     (D : Context_Access; X, Y : Integer; W, H : Natural; Filled, Invert : Integer)
+   is
+      Ignore : Xlib_Thin.C_Int;
    begin
-      if D = null or else C = null then
+      if D = null or else D.Scheme = null then
          return;
       end if;
-      Xft_Thin.XftColorFree (D.Disp, Vis, Cmap, C);
-   end Clr_Free;
+      Ignore := Xlib_Thin.XSetForeground
+        (D.Disp, D.Gc,
+         (if Invert /= 0
+          then D.Scheme (Dwm_Types.Col_Bg).Pixel
+          else D.Scheme (Dwm_Types.Col_Fg).Pixel));
+      if Filled /= 0 then
+         Ignore := Xlib_Thin.XFillRectangle
+           (D.Disp, D.Drawable, D.Gc, Xlib_Thin.C_Int (X), Xlib_Thin.C_Int (Y),
+            Xlib_Thin.C_UInt (W), Xlib_Thin.C_UInt (H));
+      else
+         Ignore := Xlib_Thin.XDrawRectangle
+           (D.Disp, D.Drawable, D.Gc, Xlib_Thin.C_Int (X), Xlib_Thin.C_Int (Y),
+            Xlib_Thin.C_UInt (Natural'Max (W, 1) - 1), Xlib_Thin.C_UInt (Natural'Max (H, 1) - 1));
+      end if;
+   end Rect;
+
+   procedure Resize (D : Context_Access; W, H : Natural) is
+      Ignore : Xlib_Thin.C_Int;
+   begin
+      if D = null then
+         return;
+      end if;
+      D.W := W;
+      D.H := H;
+      if D.Drawable /= Xlib_Thin.None then
+         Ignore := Xlib_Thin.XFreePixmap (D.Disp, D.Drawable);
+      end if;
+      D.Drawable := Xlib_Thin.XCreatePixmap
+        (D.Disp, D.Root, Xlib_Thin.C_UInt (W), Xlib_Thin.C_UInt (H),
+         Xlib_Thin.C_UInt (Xlib_Thin.XDefaultDepth (D.Disp, D.Screen)));
+   end Resize;
 
    function Scm_Create
      (D : Context_Access; Clrnames : Dwm_Types.Color_Name_Triple)
@@ -280,103 +292,6 @@ package body Drw is
          D.Scheme := Scm;
       end if;
    end Set_Scheme;
-
-   --------------------------------------------------------------------
-   --  Drawing                                                        --
-   --------------------------------------------------------------------
-
-   procedure Rect
-     (D : Context_Access; X, Y : Integer; W, H : Natural; Filled, Invert : Integer)
-   is
-      Ignore : Xlib_Thin.C_Int;
-   begin
-      if D = null or else D.Scheme = null then
-         return;
-      end if;
-      Ignore := Xlib_Thin.XSetForeground
-        (D.Disp, D.Gc,
-         (if Invert /= 0
-          then D.Scheme (Dwm_Types.Col_Bg).Pixel
-          else D.Scheme (Dwm_Types.Col_Fg).Pixel));
-      if Filled /= 0 then
-         Ignore := Xlib_Thin.XFillRectangle
-           (D.Disp, D.Drawable, D.Gc, Xlib_Thin.C_Int (X), Xlib_Thin.C_Int (Y),
-            Xlib_Thin.C_UInt (W), Xlib_Thin.C_UInt (H));
-      else
-         Ignore := Xlib_Thin.XDrawRectangle
-           (D.Disp, D.Drawable, D.Gc, Xlib_Thin.C_Int (X), Xlib_Thin.C_Int (Y),
-            Xlib_Thin.C_UInt (Natural'Max (W, 1) - 1), Xlib_Thin.C_UInt (Natural'Max (H, 1) - 1));
-      end if;
-   end Rect;
-
-   function Fontset_Getwidth (D : Context_Access; Txt : String) return Natural is
-   begin
-      if D = null or else D.Fonts = null or else Txt'Length = 0 then
-         return 0;
-      end if;
-      return Text (D, 0, 0, 0, 0, 0, Txt, 0);
-   end Fontset_Getwidth;
-
-   function Fontset_Getwidth_Clamp (D : Context_Access; Txt : String; N : Natural) return Natural is
-      Tmp : Natural := 0;
-   begin
-      if D /= null and then D.Fonts /= null and then Txt'Length > 0 and then N > 0 then
-         Tmp := Drw.Text (D, 0, 0, 0, 0, 0, Txt, N);
-      end if;
-      return Natural'Min (N, Tmp);
-   end Fontset_Getwidth_Clamp;
-
-   procedure Font_Getexts
-     (Font : Fnt_Access; Txt : String; Len : Natural; W : out Natural; H : out Natural)
-   is
-      Ext : aliased Xft_Thin.XGlyphInfo;
-   begin
-      W := 0;
-      H := 0;
-      if Font = null or else Txt'Length = 0 then
-         return;
-      end if;
-      Xft_Thin.XftTextExtentsUtf8
-        (Font.Disp, Font.Xfont, Txt (Txt'First)'Address, Xlib_Thin.C_Int (Len), Ext'Access);
-      W := Natural (Ext.X_Off);
-      H := Font.H;
-   end Font_Getexts;
-
-   procedure Map
-     (D : Context_Access; Win : Xlib_Thin.Window; X, Y : Integer; W, H : Natural)
-   is
-      Ignore : Xlib_Thin.C_Int;
-   begin
-      if D = null then
-         return;
-      end if;
-      Ignore := Xlib_Thin.XCopyArea
-        (D.Disp, D.Drawable, Xlib_Thin.Drawable (Win), D.Gc,
-         Xlib_Thin.C_Int (X), Xlib_Thin.C_Int (Y), Xlib_Thin.C_UInt (W), Xlib_Thin.C_UInt (H),
-         Xlib_Thin.C_Int (X), Xlib_Thin.C_Int (Y));
-      Ignore := Xlib_Thin.XSync (D.Disp, 0);
-   end Map;
-
-   function Cur_Create (D : Context_Access; Shape : Xlib_Thin.C_UInt) return Cur_Access is
-      C : Cur_Access;
-   begin
-      if D = null then
-         return null;
-      end if;
-      C := new Cur;
-      C.Cursor := Xlib_Thin.XCreateFontCursor (D.Disp, Shape);
-      return C;
-   end Cur_Create;
-
-   procedure Cur_Free (D : Context_Access; C : in out Cur_Access) is
-      Ignore : Xlib_Thin.C_Int;
-   begin
-      if C = null then
-         return;
-      end if;
-      Ignore := Xlib_Thin.XFreeCursor (D.Disp, C.Cursor);
-      Free_Cur (C);
-   end Cur_Free;
 
    --------------------------------------------------------------------
    --  Text                                                           --
@@ -611,5 +526,98 @@ package body Drw is
 
       return Cur_X + (if Render then Cur_W else 0);
    end Text;
+
+   procedure Utf8_Decode
+     (S : String; Pos : Positive; Codepoint : out Codepoint_Type;
+      Length : out Natural; Err : out Boolean)
+   is
+      B0  : constant Natural := Character'Pos (S (Pos));
+      Len : constant Natural := Lens (B0 / 8);
+      Cp  : Codepoint_Type;
+   begin
+      Codepoint := UTF_Invalid;
+      Err := True;
+      if Len = 0 then
+         Length := 1;
+         return;
+      end if;
+      Cp := Codepoint_Type (B0) and Leading_Mask (Len);
+      for I in 1 .. Len - 1 loop
+         if Pos + I > S'Last then
+            Length := I;
+            return;
+         end if;
+         declare
+            Bi : constant Natural := Character'Pos (S (Pos + I));
+         begin
+            if Bi = 0 or else (Bi / 64) /= 2 then  --  (Bi & 0xC0) /= 0x80
+               Length := I;
+               return;
+            end if;
+            Cp := (Cp * 64) or Codepoint_Type (Bi mod 64);
+         end;
+      end loop;
+      if Cp > 16#10FFFF# or else (Cp / 2048) = 16#1B# or else Cp < Overlong (Len)
+      then
+         Length := Len;
+         return;
+      end if;
+      Err := False;
+      Codepoint := Cp;
+      Length := Len;
+   end Utf8_Decode;
+
+   function Xfont_Create
+     (D : Context_Access; Fontname : String; Fontpattern : Xft_Thin.FcPattern) return Fnt_Access
+   is
+      Xfont   : Xft_Thin.XftFont_Access := null;
+      Pattern : Xft_Thin.FcPattern := System.Null_Address;
+      Font    : Fnt_Access;
+   begin
+      if Fontname'Length > 0 then
+         declare
+            C_Name : Interfaces.C.Strings.chars_ptr := New_String_Ptr (Fontname);
+         begin
+            Xfont := Xft_Thin.XftFontOpenName (D.Disp, D.Screen, C_Name);
+            if Xfont = null then
+               Interfaces.C.Strings.Free (C_Name);
+               return null;
+            end if;
+            Pattern := Xft_Thin.FcNameParse (C_Name);
+            if Pattern = System.Null_Address then
+               Xft_Thin.XftFontClose (D.Disp, Xfont);
+               Interfaces.C.Strings.Free (C_Name);
+               return null;
+            end if;
+            Interfaces.C.Strings.Free (C_Name);
+         end;
+      elsif Fontpattern /= System.Null_Address then
+         Xfont := Xft_Thin.XftFontOpenPattern (D.Disp, Fontpattern);
+         if Xfont = null then
+            return null;
+         end if;
+      else
+         Util.Die ("no font specified.");
+      end if;
+
+      Font := new Fnt;
+      Font.Xfont := Xfont;
+      Font.Pattern := Pattern;
+      Font.H := Natural (Xfont.Ascent + Xfont.Descent);
+      Font.Disp := D.Disp;
+      return Font;
+   end Xfont_Create;
+
+   procedure Xfont_Free (Font : in out Fnt_Access) is
+   begin
+      if Font = null then
+         return;
+      end if;
+      if Font.Pattern /= System.Null_Address then
+         Xft_Thin.FcPatternDestroy (Font.Pattern);
+      end if;
+      Xft_Thin.XftFontClose (Font.Disp, Font.Xfont);
+      Free_Fnt (Font);
+   end Xfont_Free;
 
 end Drw;

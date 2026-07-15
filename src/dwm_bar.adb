@@ -7,9 +7,6 @@ with Xlib_Thin;
 
 package body Dwm_Bar is
 
-   use type Xlib_Thin.C_Int;
-   use type Xlib_Thin.C_UInt;
-   use type Xlib_Thin.C_Long;
    use type Xlib_Thin.C_ULong;
    use type Xlib_Thin.XID;
    use type Dwm_Types.Tag_Mask;

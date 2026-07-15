@@ -29,44 +29,19 @@ package body Dwm_Monitors is
    Xinerama_Info_Elem_Size : constant System.Storage_Elements.Storage_Offset :=
      Xinerama_Thin.XineramaScreenInfo'Size / 8;
 
-   function Info_At (Base : System.Address; Index : Natural) return Xinerama_Thin.XineramaScreenInfo
-   is
-   begin
-      return To_Info_Access
-        (Base + System.Storage_Elements.Storage_Offset (Index) * Xinerama_Info_Elem_Size).all;
-   end Info_At;
+   --  Private helpers used only by Updategeom's Xinerama path; specs
+   --  given here (rather than in dwm_monitors.ads) since they're not
+   --  part of the public API.
+   function Info_At (Base : System.Address; Index : Natural) return Xinerama_Thin.XineramaScreenInfo;
 
    type Info_Array is array (Natural range <>) of Xinerama_Thin.XineramaScreenInfo;
 
    function Isuniquegeom
-     (Unique : Info_Array; Count : Natural; Info : Xinerama_Thin.XineramaScreenInfo) return Boolean
-   is
-   begin
-      for I in 0 .. Count - 1 loop
-         if Unique (I).X_Org = Info.X_Org and then Unique (I).Y_Org = Info.Y_Org
-           and then Unique (I).Width = Info.Width and then Unique (I).Height = Info.Height
-         then
-            return False;
-         end if;
-      end loop;
-      return True;
-   end Isuniquegeom;
+     (Unique : Info_Array; Count : Natural; Info : Xinerama_Thin.XineramaScreenInfo) return Boolean;
 
-   function Createmon return Dwm_Types.Monitor_Access is
-      M : constant Dwm_Types.Monitor_Access := new Dwm_Types.Monitor;
-   begin
-      M.Tagset := (1, 1);
-      M.Mfact := Config.Mfact;
-      M.Nmaster := Config.Nmaster;
-      M.Showbar := Config.Showbar;
-      M.Topbar := Config.Topbar;
-      M.Lt := Dwm_State.Default_Lt;
-      if Dwm_State.Default_Lt (0) /= null then
-         M.Ltsymbol := Dwm_Types.Lt_Symbol_Strings.To_Bounded_String
-           (Dwm_State.Default_Lt (0).Symbol.all, Ada.Strings.Right);
-      end if;
-      return M;
-   end Createmon;
+   --------------------------------------------------------------------
+   --  Subprogram bodies (alphabetical order; -gnatyo)                --
+   --------------------------------------------------------------------
 
    procedure Cleanupmon (Mon : Dwm_Types.Monitor_Access) is
       M  : Dwm_Types.Monitor_Access;
@@ -88,6 +63,22 @@ package body Dwm_Monitors is
       Ignore := Xlib_Thin.XDestroyWindow (Dwm_State.Dpy, Mon.Barwin);
       Dwm_Types.Free_Monitor (Mv);
    end Cleanupmon;
+
+   function Createmon return Dwm_Types.Monitor_Access is
+      M : constant Dwm_Types.Monitor_Access := new Dwm_Types.Monitor;
+   begin
+      M.Tagset := (1, 1);
+      M.Mfact := Config.Mfact;
+      M.Nmaster := Config.Nmaster;
+      M.Showbar := Config.Showbar;
+      M.Topbar := Config.Topbar;
+      M.Lt := Dwm_State.Default_Lt;
+      if Dwm_State.Default_Lt (0) /= null then
+         M.Ltsymbol := Dwm_Types.Lt_Symbol_Strings.To_Bounded_String
+           (Dwm_State.Default_Lt (0).Symbol.all, Ada.Strings.Right);
+      end if;
+      return M;
+   end Createmon;
 
    function Dirtomon (Dir : Integer) return Dwm_Types.Monitor_Access is
       M : Dwm_Types.Monitor_Access := null;
@@ -111,6 +102,40 @@ package body Dwm_Monitors is
       return M;
    end Dirtomon;
 
+   procedure Expose (Ev : access Xlib_Thin.XEvent) is
+      Exp : Xlib_Thin.XExposeEvent with Address => Ev.all'Address;
+      pragma Import (Ada, Exp);
+      M : Dwm_Types.Monitor_Access;
+   begin
+      if Exp.Count = 0 then
+         M := Wintomon (Exp.Win);
+         if M /= null then
+            Dwm_Bar.Drawbar (M);
+         end if;
+      end if;
+   end Expose;
+
+   function Info_At (Base : System.Address; Index : Natural) return Xinerama_Thin.XineramaScreenInfo
+   is
+   begin
+      return To_Info_Access
+        (Base + System.Storage_Elements.Storage_Offset (Index) * Xinerama_Info_Elem_Size).all;
+   end Info_At;
+
+   function Isuniquegeom
+     (Unique : Info_Array; Count : Natural; Info : Xinerama_Thin.XineramaScreenInfo) return Boolean
+   is
+   begin
+      for I in 0 .. Count - 1 loop
+         if Unique (I).X_Org = Info.X_Org and then Unique (I).Y_Org = Info.Y_Org
+           and then Unique (I).Width = Info.Width and then Unique (I).Height = Info.Height
+         then
+            return False;
+         end if;
+      end loop;
+      return True;
+   end Isuniquegeom;
+
    function Recttomon (X, Y, W, H : Integer) return Dwm_Types.Monitor_Access is
       M, R : Dwm_Types.Monitor_Access;
       Area, A : Integer := 0;
@@ -128,28 +153,6 @@ package body Dwm_Monitors is
       end loop;
       return R;
    end Recttomon;
-
-   function Wintomon (Win : Xlib_Thin.Window) return Dwm_Types.Monitor_Access is
-      X, Y : Integer;
-      C : Dwm_Types.Client_Access;
-      M : Dwm_Types.Monitor_Access;
-   begin
-      if Win = Dwm_State.Root and then Dwm_Xutil.Getrootptr (X, Y) then
-         return Recttomon (X, Y, 1, 1);
-      end if;
-      M := Dwm_State.Mons;
-      while M /= null loop
-         if Win = M.Barwin then
-            return M;
-         end if;
-         M := M.Next;
-      end loop;
-      C := Dwm_Clients.Wintoclient (Win);
-      if C /= null then
-         return C.Mon;
-      end if;
-      return Dwm_State.Selmon;
-   end Wintomon;
 
    procedure Updatebarpos (M : Dwm_Types.Monitor_Access) is
    begin
@@ -285,17 +288,26 @@ package body Dwm_Monitors is
       return Dirty;
    end Updategeom;
 
-   procedure Expose (Ev : access Xlib_Thin.XEvent) is
-      Exp : Xlib_Thin.XExposeEvent with Address => Ev.all'Address;
-      pragma Import (Ada, Exp);
+   function Wintomon (Win : Xlib_Thin.Window) return Dwm_Types.Monitor_Access is
+      X, Y : Integer;
+      C : Dwm_Types.Client_Access;
       M : Dwm_Types.Monitor_Access;
    begin
-      if Exp.Count = 0 then
-         M := Wintomon (Exp.Win);
-         if M /= null then
-            Dwm_Bar.Drawbar (M);
-         end if;
+      if Win = Dwm_State.Root and then Dwm_Xutil.Getrootptr (X, Y) then
+         return Recttomon (X, Y, 1, 1);
       end if;
-   end Expose;
+      M := Dwm_State.Mons;
+      while M /= null loop
+         if Win = M.Barwin then
+            return M;
+         end if;
+         M := M.Next;
+      end loop;
+      C := Dwm_Clients.Wintoclient (Win);
+      if C /= null then
+         return C.Mon;
+      end if;
+      return Dwm_State.Selmon;
+   end Wintomon;
 
 end Dwm_Monitors;

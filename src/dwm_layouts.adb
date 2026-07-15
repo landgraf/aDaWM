@@ -6,6 +6,28 @@ package body Dwm_Layouts is
 
    use type Dwm_Types.Client_Access;
 
+   procedure Monocle (M : Dwm_Types.Monitor_Access) is
+      N : Natural := 0;
+      C : Dwm_Types.Client_Access;
+   begin
+      C := M.Clients;
+      while C /= null loop
+         if Dwm_Types.Is_Visible (C) then
+            N := N + 1;
+         end if;
+         C := C.Next;
+      end loop;
+      if N > 0 then
+         M.Ltsymbol := Dwm_Types.Lt_Symbol_Strings.To_Bounded_String
+           ("[" & Ada.Strings.Fixed.Trim (Natural'Image (N), Ada.Strings.Left) & "]");
+      end if;
+      C := Dwm_Clients.Nexttiled (M.Clients);
+      while C /= null loop
+         Dwm_Clients.Resize (C, M.Wx, M.Wy, M.Ww - 2 * C.Bw, M.Wh - 2 * C.Bw, False);
+         C := Dwm_Clients.Nexttiled (C.Next);
+      end loop;
+   end Monocle;
+
    procedure Tile (M : Dwm_Types.Monitor_Access) is
       N  : Integer := 0;
       C  : Dwm_Types.Client_Access;
@@ -49,27 +71,5 @@ package body Dwm_Layouts is
          C := Dwm_Clients.Nexttiled (C.Next);
       end loop;
    end Tile;
-
-   procedure Monocle (M : Dwm_Types.Monitor_Access) is
-      N : Natural := 0;
-      C : Dwm_Types.Client_Access;
-   begin
-      C := M.Clients;
-      while C /= null loop
-         if Dwm_Types.Is_Visible (C) then
-            N := N + 1;
-         end if;
-         C := C.Next;
-      end loop;
-      if N > 0 then
-         M.Ltsymbol := Dwm_Types.Lt_Symbol_Strings.To_Bounded_String
-           ("[" & Ada.Strings.Fixed.Trim (Natural'Image (N), Ada.Strings.Left) & "]");
-      end if;
-      C := Dwm_Clients.Nexttiled (M.Clients);
-      while C /= null loop
-         Dwm_Clients.Resize (C, M.Wx, M.Wy, M.Ww - 2 * C.Bw, M.Wh - 2 * C.Bw, False);
-         C := Dwm_Clients.Nexttiled (C.Next);
-      end loop;
-   end Monocle;
 
 end Dwm_Layouts;
