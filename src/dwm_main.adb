@@ -34,18 +34,18 @@ package body Dwm_Main is
    use type Dwm_Types.Tag_Mask;
 
    function C_Setlocale
-     (Category : Interfaces.C.int; Locale : Interfaces.C.Strings.chars_ptr)
+     (Category : in Interfaces.C.int; Locale : in Interfaces.C.Strings.chars_ptr)
       return Interfaces.C.Strings.chars_ptr;
    pragma Import (C, C_Setlocale, "setlocale");
    LC_CTYPE : constant Interfaces.C.int := 0;
 
    function C_Waitpid
-     (Pid : Interfaces.C.int; Status : System.Address; Options : Interfaces.C.int)
+     (Pid : in Interfaces.C.int; Status : in System.Address; Options : in Interfaces.C.int)
       return Interfaces.C.int;
    pragma Import (C, C_Waitpid, "waitpid");
    WNOHANG : constant Interfaces.C.int := 1;
 
-   function C_Signal (Signum : Interfaces.C.int; Handler : System.Address) return System.Address;
+   function C_Signal (Signum : in Interfaces.C.int; Handler : in System.Address) return System.Address;
    pragma Import (C, C_Signal, "signal");
    SIGCHLD : constant Interfaces.C.int := 17;
    SIG_IGN : constant System.Address := System.Storage_Elements.To_Address (1);
@@ -57,7 +57,7 @@ package body Dwm_Main is
    --  address, as returned by XQueryTree. Private; spec given here
    --  (rather than in dwm_main.ads) since it's not part of the public
    --  API.
-   function Window_At (Base : System.Address; Index : Natural) return Xlib_Thin.Window;
+   function Window_At (Base : in System.Address; Index : in Natural) return Xlib_Thin.Window;
 
    --  Given library-level accessibility so Cleanup can point
    --  Selected_Monitor.Layout at it (dwm.c's local `Layout foo = {"", NULL}`
@@ -244,9 +244,9 @@ package body Dwm_Main is
       Ignore_Bool : Boolean;
       Ignore_Addr : System.Address;
 
-      function Atom (Name : String) return Xlib_Thin.Atom;
+      function Atom (Name : in String) return Xlib_Thin.Atom;
 
-      function Atom (Name : String) return Xlib_Thin.Atom is
+      function Atom (Name : in String) return Xlib_Thin.Atom is
          Name_Ptr : Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String (Name);
          Result : Xlib_Thin.Atom;
       begin
@@ -270,7 +270,8 @@ package body Dwm_Main is
         (Drw.Create
            (Dwm_State.Get_Display, Dwm_State.Get_Screen, Dwm_State.Get_Root,
             Dwm_State.Get_Screen_Width, Dwm_State.Get_Screen_Height));
-      if Drw.Fontset_Create (Dwm_State.Get_Drw_Ctx, Config.Fonts) = null then
+      Dwm_State.Get_Drw_Ctx.Fonts := Drw.Fontset_Create (Dwm_State.Get_Drw_Ctx, Config.Fonts);
+      if Dwm_State.Get_Drw_Ctx.Fonts = null then
          Util.Die ("no fonts could be loaded.");
       end if;
       Dwm_State.Set_Left_Right_Pad (Dwm_State.Get_Drw_Ctx.Fonts.Height);
@@ -283,7 +284,7 @@ package body Dwm_Main is
       Dwm_State.Set_Keys (Dwm_Bindings.Keys'Access);
       Dwm_State.Set_Buttons (Dwm_Bindings.Buttons'Access);
 
-      Ignore_Bool := Dwm_Monitors.Update_Geom;
+      Dwm_Monitors.Update_Geom (Ignore_Bool);
 
       Utf8string := Atom ("UTF8_STRING");
       Dwm_State.Set_Wm_Atom (Dwm_State.WM_Protocols, Atom ("WM_PROTOCOLS"));
@@ -346,7 +347,7 @@ package body Dwm_Main is
       Dwm_Clients.Focus (null);
    end Setup;
 
-   function Window_At (Base : System.Address; Index : Natural) return Xlib_Thin.Window is
+   function Window_At (Base : in System.Address; Index : in Natural) return Xlib_Thin.Window is
       use type System.Storage_Elements.Storage_Offset;
    begin
       return To_Window_Access

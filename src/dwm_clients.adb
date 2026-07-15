@@ -41,17 +41,17 @@ package body Dwm_Clients is
    type Key_Code_Access is access all Xlib_Thin.KeyCode;
    function To_Key_Code_Access is new Ada.Unchecked_Conversion (System.Address, Key_Code_Access);
 
-   function Key_Code_At (Base : System.Address; Index : Natural) return Xlib_Thin.KeyCode;
+   function Key_Code_At (Base : in System.Address; Index : in Natural) return Xlib_Thin.KeyCode;
 
    type C_Ulong_Access is access all Xlib_Thin.C_ULong;
    function To_C_Ulong_Access is new Ada.Unchecked_Conversion (System.Address, C_Ulong_Access);
 
-   function C_Ulong_At (Base : System.Address; Index : Natural) return Xlib_Thin.C_ULong;
+   function C_Ulong_At (Base : in System.Address; Index : in Natural) return Xlib_Thin.C_ULong;
 
    function To_Address is new Ada.Unchecked_Conversion
      (Interfaces.C.Strings.chars_ptr, System.Address);
 
-   function Contains (Haystack, Needle : String) return Boolean is
+   function Contains (Haystack, Needle : in String) return Boolean is
      (Ada.Strings.Fixed.Index (Haystack, Needle) > 0);
 
    Tagmask : constant Dwm_Types.Tag_Mask := 2 ** Config.Tags'Length - 1;
@@ -60,7 +60,7 @@ package body Dwm_Clients is
    --  Subprogram bodies (alphabetical order; -gnatyo)                --
    --------------------------------------------------------------------
 
-   procedure Apply_Rules (Client : Dwm_Types.Client_Access) is
+   procedure Apply_Rules (Client : in Dwm_Types.Client_Access) is
       Class_Hint : aliased Xlib_Thin.XClassHint;
       Rule_Monitor : Dwm_Types.Monitor_Access;
       Ignore : Xlib_Thin.C_Int;
@@ -106,46 +106,50 @@ package body Dwm_Clients is
    end Apply_Rules;
 
    function Apply_Size_Hints
-     (Client : Dwm_Types.Client_Access; Pos_X, Pos_Y, Width, Height : in out Integer;
-      Interact : Boolean) return Boolean
+     (Client : in Dwm_Types.Client_Access; Pos_X, Pos_Y, Width, Height : in Integer;
+      Interact : in Boolean) return Size_Hint_Result
    is
       Monitor : constant Dwm_Types.Monitor_Access := Client.Monitor;
+      New_X : Integer := Pos_X;
+      New_Y : Integer := Pos_Y;
+      New_Width : Integer := Width;
+      New_Height : Integer := Height;
       Base_Is_Min : Boolean;
    begin
-      Width := Util.Max_Integer (1, Width);
-      Height := Util.Max_Integer (1, Height);
+      New_Width := Util.Max_Integer (1, New_Width);
+      New_Height := Util.Max_Integer (1, New_Height);
       if Interact then
-         if Pos_X > Dwm_State.Get_Screen_Width then
-            Pos_X := Dwm_State.Get_Screen_Width - Dwm_Types.Outer_Width (Client);
+         if New_X > Dwm_State.Get_Screen_Width then
+            New_X := Dwm_State.Get_Screen_Width - Dwm_Types.Outer_Width (Client);
          end if;
-         if Pos_Y > Dwm_State.Get_Screen_Height then
-            Pos_Y := Dwm_State.Get_Screen_Height - Dwm_Types.Outer_Height (Client);
+         if New_Y > Dwm_State.Get_Screen_Height then
+            New_Y := Dwm_State.Get_Screen_Height - Dwm_Types.Outer_Height (Client);
          end if;
-         if Pos_X + Width + 2 * Client.Border_Width < 0 then
-            Pos_X := 0;
+         if New_X + New_Width + 2 * Client.Border_Width < 0 then
+            New_X := 0;
          end if;
-         if Pos_Y + Height + 2 * Client.Border_Width < 0 then
-            Pos_Y := 0;
+         if New_Y + New_Height + 2 * Client.Border_Width < 0 then
+            New_Y := 0;
          end if;
       else
-         if Pos_X >= Monitor.Work_X + Monitor.Work_Width then
-            Pos_X := Monitor.Work_X + Monitor.Work_Width - Dwm_Types.Outer_Width (Client);
+         if New_X >= Monitor.Work_X + Monitor.Work_Width then
+            New_X := Monitor.Work_X + Monitor.Work_Width - Dwm_Types.Outer_Width (Client);
          end if;
-         if Pos_Y >= Monitor.Work_Y + Monitor.Work_Height then
-            Pos_Y := Monitor.Work_Y + Monitor.Work_Height - Dwm_Types.Outer_Height (Client);
+         if New_Y >= Monitor.Work_Y + Monitor.Work_Height then
+            New_Y := Monitor.Work_Y + Monitor.Work_Height - Dwm_Types.Outer_Height (Client);
          end if;
-         if Pos_X + Width + 2 * Client.Border_Width <= Monitor.Work_X then
-            Pos_X := Monitor.Work_X;
+         if New_X + New_Width + 2 * Client.Border_Width <= Monitor.Work_X then
+            New_X := Monitor.Work_X;
          end if;
-         if Pos_Y + Height + 2 * Client.Border_Width <= Monitor.Work_Y then
-            Pos_Y := Monitor.Work_Y;
+         if New_Y + New_Height + 2 * Client.Border_Width <= Monitor.Work_Y then
+            New_Y := Monitor.Work_Y;
          end if;
       end if;
-      if Height < Dwm_State.Get_Bar_Height then
-         Height := Dwm_State.Get_Bar_Height;
+      if New_Height < Dwm_State.Get_Bar_Height then
+         New_Height := Dwm_State.Get_Bar_Height;
       end if;
-      if Width < Dwm_State.Get_Bar_Height then
-         Width := Dwm_State.Get_Bar_Height;
+      if New_Width < Dwm_State.Get_Bar_Height then
+         New_Width := Dwm_State.Get_Bar_Height;
       end if;
       if Config.Resize_Hints or else Client.Is_Floating
         or else Client.Monitor.Layout (Client.Monitor.Sel_Lt).Arrange = null
@@ -155,40 +159,42 @@ package body Dwm_Clients is
          end if;
          Base_Is_Min := Client.Base_Width = Client.Min_Width and then Client.Base_Height = Client.Min_Height;
          if not Base_Is_Min then
-            Width := Width - Client.Base_Width;
-            Height := Height - Client.Base_Height;
+            New_Width := New_Width - Client.Base_Width;
+            New_Height := New_Height - Client.Base_Height;
          end if;
          if Client.Min_Aspect > 0.0 and then Client.Max_Aspect > 0.0 then
-            if Client.Max_Aspect < Float (Width) / Float (Height) then
-               Width := Integer (Float (Height) * Client.Max_Aspect + 0.5);
-            elsif Client.Min_Aspect < Float (Height) / Float (Width) then
-               Height := Integer (Float (Width) * Client.Min_Aspect + 0.5);
+            if Client.Max_Aspect < Float (New_Width) / Float (New_Height) then
+               New_Width := Integer (Float (New_Height) * Client.Max_Aspect + 0.5);
+            elsif Client.Min_Aspect < Float (New_Height) / Float (New_Width) then
+               New_Height := Integer (Float (New_Width) * Client.Min_Aspect + 0.5);
             end if;
          end if;
          if Base_Is_Min then
-            Width := Width - Client.Base_Width;
-            Height := Height - Client.Base_Height;
+            New_Width := New_Width - Client.Base_Width;
+            New_Height := New_Height - Client.Base_Height;
          end if;
          if Client.Inc_Width /= 0 then
-            Width := Width - (Width rem Client.Inc_Width);
+            New_Width := New_Width - (New_Width rem Client.Inc_Width);
          end if;
          if Client.Inc_Height /= 0 then
-            Height := Height - (Height rem Client.Inc_Height);
+            New_Height := New_Height - (New_Height rem Client.Inc_Height);
          end if;
-         Width := Util.Max_Integer (Width + Client.Base_Width, Client.Min_Width);
-         Height := Util.Max_Integer (Height + Client.Base_Height, Client.Min_Height);
+         New_Width := Util.Max_Integer (New_Width + Client.Base_Width, Client.Min_Width);
+         New_Height := Util.Max_Integer (New_Height + Client.Base_Height, Client.Min_Height);
          if Client.Max_Width /= 0 then
-            Width := Util.Min_Integer (Width, Client.Max_Width);
+            New_Width := Util.Min_Integer (New_Width, Client.Max_Width);
          end if;
          if Client.Max_Height /= 0 then
-            Height := Util.Min_Integer (Height, Client.Max_Height);
+            New_Height := Util.Min_Integer (New_Height, Client.Max_Height);
          end if;
       end if;
-      return Pos_X /= Client.Pos_X or else Pos_Y /= Client.Pos_Y
-        or else Width /= Client.Width or else Height /= Client.Height;
+      return
+        (Pos_X => New_X, Pos_Y => New_Y, Width => New_Width, Height => New_Height,
+         Changed => New_X /= Client.Pos_X or else New_Y /= Client.Pos_Y
+           or else New_Width /= Client.Width or else New_Height /= Client.Height);
    end Apply_Size_Hints;
 
-   procedure Arrange (Monitor : Dwm_Types.Monitor_Access) is
+   procedure Arrange (Monitor : in Dwm_Types.Monitor_Access) is
       Cur_Monitor : Dwm_Types.Monitor_Access;
    begin
       if Monitor /= null then
@@ -212,7 +218,7 @@ package body Dwm_Clients is
       end if;
    end Arrange;
 
-   procedure Arrange_Mon (Monitor : Dwm_Types.Monitor_Access) is
+   procedure Arrange_Mon (Monitor : in Dwm_Types.Monitor_Access) is
    begin
       Monitor.Lt_Symbol := Dwm_Types.Lt_Symbol_Strings.To_Bounded_String
         (Monitor.Layout (Monitor.Sel_Lt).Symbol.all, Ada.Strings.Right);
@@ -221,26 +227,26 @@ package body Dwm_Clients is
       end if;
    end Arrange_Mon;
 
-   procedure Attach (Client : Dwm_Types.Client_Access) is
+   procedure Attach (Client : in Dwm_Types.Client_Access) is
    begin
       Client.Next := Client.Monitor.Clients;
       Client.Monitor.Clients := Client;
    end Attach;
 
-   procedure Attach_Stack (Client : Dwm_Types.Client_Access) is
+   procedure Attach_Stack (Client : in Dwm_Types.Client_Access) is
    begin
       Client.Stack_Next := Client.Monitor.Stack;
       Client.Monitor.Stack := Client;
    end Attach_Stack;
 
-   function C_Ulong_At (Base : System.Address; Index : Natural) return Xlib_Thin.C_ULong is
+   function C_Ulong_At (Base : in System.Address; Index : in Natural) return Xlib_Thin.C_ULong is
       use type System.Storage_Elements.Storage_Offset;
    begin
       return To_C_Ulong_Access
         (Base + System.Storage_Elements.Storage_Offset (Index * 8)).all;
    end C_Ulong_At;
 
-   procedure Configure (Client : Dwm_Types.Client_Access) is
+   procedure Configure (Client : in Dwm_Types.Client_Access) is
       Event : aliased Xlib_Thin.XEvent;
       Configure_Event : Xlib_Thin.XConfigureEvent with Address => Event'Address;
       pragma Import (Ada, Configure_Event);
@@ -334,7 +340,7 @@ package body Dwm_Clients is
       Ignore := Xlib_Thin.XSync (Dwm_State.Get_Display, 0);
    end Configure_Request;
 
-   procedure Detach (Client : Dwm_Types.Client_Access) is
+   procedure Detach (Client : in Dwm_Types.Client_Access) is
       Cur, Prev : Dwm_Types.Client_Access := null;
    begin
       Cur := Client.Monitor.Clients;
@@ -349,7 +355,7 @@ package body Dwm_Clients is
       end if;
    end Detach;
 
-   procedure Detach_Stack (Client : Dwm_Types.Client_Access) is
+   procedure Detach_Stack (Client : in Dwm_Types.Client_Access) is
       Cur, Prev, New_Selected : Dwm_Types.Client_Access := null;
    begin
       Cur := Client.Monitor.Stack;
@@ -372,7 +378,7 @@ package body Dwm_Clients is
       end if;
    end Detach_Stack;
 
-   procedure Focus (Client : Dwm_Types.Client_Access) is
+   procedure Focus (Client : in Dwm_Types.Client_Access) is
       Target : Dwm_Types.Client_Access := Client;
       Ignore : Xlib_Thin.C_Int;
    begin
@@ -411,7 +417,7 @@ package body Dwm_Clients is
       Dwm_Bar.Draw_Bars;
    end Focus;
 
-   procedure Grab_Buttons (Client : Dwm_Types.Client_Access; Focused : Boolean) is
+   procedure Grab_Buttons (Client : in Dwm_Types.Client_Access; Focused : in Boolean) is
       Modifiers : constant array (0 .. 3) of Xlib_Thin.C_UInt :=
         (0, Xlib_Thin.LockMask, Dwm_State.Get_Num_Lock_Mask, Dwm_State.Get_Num_Lock_Mask or Xlib_Thin.LockMask);
       Button_Mask : constant Xlib_Thin.C_UInt :=
@@ -476,14 +482,14 @@ package body Dwm_Clients is
       Ignore := Xlib_Thin.XFree (Keysym_Table);
    end Grab_Keys;
 
-   function Key_Code_At (Base : System.Address; Index : Natural) return Xlib_Thin.KeyCode is
+   function Key_Code_At (Base : in System.Address; Index : in Natural) return Xlib_Thin.KeyCode is
       use type System.Storage_Elements.Storage_Offset;
    begin
       return To_Key_Code_Access
         (Base + System.Storage_Elements.Storage_Offset (Index)).all;
    end Key_Code_At;
 
-   procedure Manage (Window : Xlib_Thin.Window; Attrs : Xlib_Thin.XWindowAttributes) is
+   procedure Manage (Window : in Xlib_Thin.Window; Attrs : in Xlib_Thin.XWindowAttributes) is
       Client : constant Dwm_Types.Client_Access := new Dwm_Types.Client;
       Trans_Client : Dwm_Types.Client_Access := null;
       Trans : aliased Xlib_Thin.Window := Xlib_Thin.None;
@@ -579,7 +585,7 @@ package body Dwm_Clients is
       end if;
    end Map_Request;
 
-   function Next_Tiled (Client : Dwm_Types.Client_Access) return Dwm_Types.Client_Access is
+   function Next_Tiled (Client : in Dwm_Types.Client_Access) return Dwm_Types.Client_Access is
       Cur : Dwm_Types.Client_Access := Client;
    begin
       while Cur /= null and then (Cur.Is_Floating or else not Dwm_Types.Is_Visible (Cur)) loop
@@ -588,7 +594,7 @@ package body Dwm_Clients is
       return Cur;
    end Next_Tiled;
 
-   procedure Pop (Client : Dwm_Types.Client_Access) is
+   procedure Pop (Client : in Dwm_Types.Client_Access) is
    begin
       Detach (Client);
       Attach (Client);
@@ -597,19 +603,16 @@ package body Dwm_Clients is
    end Pop;
 
    procedure Resize
-     (Client : Dwm_Types.Client_Access; Pos_X, Pos_Y, Width, Height : Integer; Interact : Boolean)
+     (Client : in Dwm_Types.Client_Access; Pos_X, Pos_Y, Width, Height : in Integer; Interact : in Boolean)
    is
-      Nx : Integer := Pos_X;
-      Ny : Integer := Pos_Y;
-      Nw : Integer := Width;
-      Nh : Integer := Height;
+      Hints : constant Size_Hint_Result := Apply_Size_Hints (Client, Pos_X, Pos_Y, Width, Height, Interact);
    begin
-      if Apply_Size_Hints (Client, Nx, Ny, Nw, Nh, Interact) then
-         Resize_Client (Client, Nx, Ny, Nw, Nh);
+      if Hints.Changed then
+         Resize_Client (Client, Hints.Pos_X, Hints.Pos_Y, Hints.Width, Hints.Height);
       end if;
    end Resize;
 
-   procedure Resize_Client (Client : Dwm_Types.Client_Access; Pos_X, Pos_Y, Width, Height : Integer) is
+   procedure Resize_Client (Client : in Dwm_Types.Client_Access; Pos_X, Pos_Y, Width, Height : in Integer) is
       Changes : aliased Xlib_Thin.XWindowChanges;
       Ignore : Xlib_Thin.C_Int;
    begin
@@ -635,7 +638,7 @@ package body Dwm_Clients is
       Ignore := Xlib_Thin.XSync (Dwm_State.Get_Display, 0);
    end Resize_Client;
 
-   procedure Restack (Monitor : Dwm_Types.Monitor_Access) is
+   procedure Restack (Monitor : in Dwm_Types.Monitor_Access) is
       Changes : aliased Xlib_Thin.XWindowChanges;
       Event : aliased Xlib_Thin.XEvent;
       Client : Dwm_Types.Client_Access;
@@ -667,26 +670,26 @@ package body Dwm_Clients is
       end loop;
    end Restack;
 
-   function Send_Event (Client : Dwm_Types.Client_Access; Proto : Xlib_Thin.Atom) return Boolean is
+   procedure Send_Event (Client : in Dwm_Types.Client_Access; Proto : in Xlib_Thin.Atom; Sent : out Boolean) is
       Protocols : aliased System.Address := System.Null_Address;
       Count : aliased Xlib_Thin.C_Int;
-      Exists : Boolean := False;
       Event : aliased Xlib_Thin.XEvent;
       Message_Event : Xlib_Thin.XClientMessageEvent with Address => Event'Address;
       pragma Import (Ada, Message_Event);
       Ok : Xlib_Thin.C_Int;
       Ignore : Xlib_Thin.C_Int;
    begin
+      Sent := False;
       Ok := Xlib_Thin.XGetWMProtocols (Dwm_State.Get_Display, Client.Window, Protocols'Access, Count'Access);
       if Ok /= 0 then
          for Idx in 0 .. Integer (Count) - 1 loop
             if Xlib_Thin.Atom (C_Ulong_At (Protocols, Idx)) = Proto then
-               Exists := True;
+               Sent := True;
             end if;
          end loop;
          Ignore := Xlib_Thin.XFree (Protocols);
       end if;
-      if Exists then
+      if Sent then
          Message_Event.Event_Type := Xlib_Thin.ClientMessage;
          Message_Event.Win := Client.Window;
          Message_Event.Message_Type := Dwm_State.Get_Wm_Atom (Dwm_State.WM_Protocols);
@@ -696,10 +699,9 @@ package body Dwm_Clients is
          Ignore := Xlib_Thin.XSendEvent
            (Dwm_State.Get_Display, Client.Window, 0, Xlib_Thin.NoEventMask, Event'Access);
       end if;
-      return Exists;
    end Send_Event;
 
-   procedure Send_Mon (Client : Dwm_Types.Client_Access; Monitor : Dwm_Types.Monitor_Access) is
+   procedure Send_Mon (Client : in Dwm_Types.Client_Access; Monitor : in Dwm_Types.Monitor_Access) is
    begin
       if Client.Monitor = Monitor then
          return;
@@ -718,7 +720,7 @@ package body Dwm_Clients is
       Arrange (null);
    end Send_Mon;
 
-   procedure Set_Client_State (Client : Dwm_Types.Client_Access; State : Long_Integer) is
+   procedure Set_Client_State (Client : in Dwm_Types.Client_Access; State : in Long_Integer) is
       type Data_Pair is array (0 .. 1) of Xlib_Thin.C_ULong;
       Data : aliased Data_Pair := (Xlib_Thin.C_ULong (State), Xlib_Thin.None);
       Ignore : Xlib_Thin.C_Int;
@@ -728,7 +730,7 @@ package body Dwm_Clients is
          Dwm_State.Get_Wm_Atom (Dwm_State.WM_State), 32, Xlib_Thin.PropModeReplace, Data'Address, 2);
    end Set_Client_State;
 
-   procedure Set_Focus (Client : Dwm_Types.Client_Access) is
+   procedure Set_Focus (Client : in Dwm_Types.Client_Access) is
       Window_Buf : aliased Xlib_Thin.Window := Client.Window;
       Ignore  : Xlib_Thin.C_Int;
       Ignore_Bool : Boolean;
@@ -740,10 +742,10 @@ package body Dwm_Clients is
       Ignore := Xlib_Thin.XChangeProperty
         (Dwm_State.Get_Display, Dwm_State.Get_Root, Dwm_State.Get_Net_Atom (Dwm_State.Net_Active_Window),
          Xlib_Thin.XA_WINDOW, 32, Xlib_Thin.PropModeReplace, Window_Buf'Address, 1);
-      Ignore_Bool := Send_Event (Client, Dwm_State.Get_Wm_Atom (Dwm_State.WM_Take_Focus));
+      Send_Event (Client, Dwm_State.Get_Wm_Atom (Dwm_State.WM_Take_Focus), Ignore_Bool);
    end Set_Focus;
 
-   procedure Set_Full_Screen (Client : Dwm_Types.Client_Access; Fullscreen : Boolean) is
+   procedure Set_Full_Screen (Client : in Dwm_Types.Client_Access; Fullscreen : in Boolean) is
       Fs_Atom : aliased Xlib_Thin.Atom;
       Ignore  : Xlib_Thin.C_Int;
    begin
@@ -777,7 +779,7 @@ package body Dwm_Clients is
       end if;
    end Set_Full_Screen;
 
-   procedure Set_Urgent (Client : Dwm_Types.Client_Access; Urgent : Boolean) is
+   procedure Set_Urgent (Client : in Dwm_Types.Client_Access; Urgent : in Boolean) is
       Hints : access Xlib_Thin.XWMHints;
       Ignore : Xlib_Thin.C_Int;
    begin
@@ -795,7 +797,7 @@ package body Dwm_Clients is
       Ignore := Xlib_Thin.XFree (Hints.all'Address);
    end Set_Urgent;
 
-   procedure Show_Hide (Client : Dwm_Types.Client_Access) is
+   procedure Show_Hide (Client : in Dwm_Types.Client_Access) is
       Ignore : Xlib_Thin.C_Int;
    begin
       if Client = null then
@@ -818,7 +820,7 @@ package body Dwm_Clients is
       end if;
    end Show_Hide;
 
-   procedure Unfocus (Client : Dwm_Types.Client_Access; Clear_Focus : Boolean) is
+   procedure Unfocus (Client : in Dwm_Types.Client_Access; Clear_Focus : in Boolean) is
       Ignore : Xlib_Thin.C_Int;
    begin
       if Client = null then
@@ -836,7 +838,7 @@ package body Dwm_Clients is
       end if;
    end Unfocus;
 
-   procedure Unmanage (Client : Dwm_Types.Client_Access; Destroyed : Boolean) is
+   procedure Unmanage (Client : in Dwm_Types.Client_Access; Destroyed : in Boolean) is
       Monitor : constant Dwm_Types.Monitor_Access := Client.Monitor;
       Changes : aliased Xlib_Thin.XWindowChanges;
       Freed_Client : Dwm_Types.Client_Access := Client;
@@ -904,7 +906,7 @@ package body Dwm_Clients is
       Ignore := Xlib_Thin.XFreeModifiermap (Modmap);
    end Update_Num_Lock_Mask;
 
-   procedure Update_Size_Hints (Client : Dwm_Types.Client_Access) is
+   procedure Update_Size_Hints (Client : in Dwm_Types.Client_Access) is
       Size   : aliased Xlib_Thin.XSizeHints;
       Msize  : aliased Xlib_Thin.C_Long;
       Ok     : Xlib_Thin.C_Int;
@@ -959,7 +961,7 @@ package body Dwm_Clients is
       Client.Hints_Valid := True;
    end Update_Size_Hints;
 
-   procedure Update_Title (Client : Dwm_Types.Client_Access) is
+   procedure Update_Title (Client : in Dwm_Types.Client_Access) is
       --  Two separate constants, not a reassigned variable: a String
       --  object's length is fixed at its declaration, so assigning a
       --  differently-sized result from the second Get_Text_Prop call
@@ -982,7 +984,7 @@ package body Dwm_Clients is
       end;
    end Update_Title;
 
-   procedure Update_Window_Type (Client : Dwm_Types.Client_Access) is
+   procedure Update_Window_Type (Client : in Dwm_Types.Client_Access) is
       State : constant Xlib_Thin.Atom :=
         Dwm_Xutil.Get_Atom_Prop (Client.Window, Dwm_State.Get_Net_Atom (Dwm_State.Net_WM_State));
       Wtype : constant Xlib_Thin.Atom :=
@@ -996,7 +998,7 @@ package body Dwm_Clients is
       end if;
    end Update_Window_Type;
 
-   procedure Update_Wm_Hints (Client : Dwm_Types.Client_Access) is
+   procedure Update_Wm_Hints (Client : in Dwm_Types.Client_Access) is
       Hints : access Xlib_Thin.XWMHints;
       Ignore : Xlib_Thin.C_Int;
    begin
@@ -1019,7 +1021,7 @@ package body Dwm_Clients is
       end if;
    end Update_Wm_Hints;
 
-   function Win_To_Client (Window : Xlib_Thin.Window) return Dwm_Types.Client_Access is
+   function Win_To_Client (Window : in Xlib_Thin.Window) return Dwm_Types.Client_Access is
       Monitor : Dwm_Types.Monitor_Access := Dwm_State.Get_Monitors;
       Client : Dwm_Types.Client_Access;
    begin
@@ -1037,7 +1039,7 @@ package body Dwm_Clients is
    end Win_To_Client;
 
    function X_Error
-     (Display : Xlib_Thin.Display; Event : access Xlib_Thin.XErrorEvent) return Xlib_Thin.C_Int
+     (Display : in Xlib_Thin.Display; Event : access Xlib_Thin.XErrorEvent) return Xlib_Thin.C_Int
    is
    begin
       if Event.Error_Code = Xlib_Thin.BadWindow
@@ -1057,7 +1059,7 @@ package body Dwm_Clients is
    end X_Error;
 
    function X_Error_Dummy
-     (Display : Xlib_Thin.Display; Event : access Xlib_Thin.XErrorEvent) return Xlib_Thin.C_Int
+     (Display : in Xlib_Thin.Display; Event : access Xlib_Thin.XErrorEvent) return Xlib_Thin.C_Int
    is
       pragma Unreferenced (Display, Event);
    begin
@@ -1065,7 +1067,7 @@ package body Dwm_Clients is
    end X_Error_Dummy;
 
    function X_Error_Start
-     (Display : Xlib_Thin.Display; Event : access Xlib_Thin.XErrorEvent) return Xlib_Thin.C_Int
+     (Display : in Xlib_Thin.Display; Event : access Xlib_Thin.XErrorEvent) return Xlib_Thin.C_Int
    is
       pragma Unreferenced (Display, Event);
    begin

@@ -17,9 +17,13 @@ project Dwm is
       --  columns (this project's C-binding specs read better
       --  unwrapped), then enable every remaining GNAT style check
       --  Alire's own defaults leave off (d, o, s), and turn on all
-      --  optional warnings with warnings promoted to errors.
+      --  optional warnings with warnings promoted to errors. -gnaty-I
+      --  overrides Alire's default "no explicit in mode" check: every
+      --  parameter's mode is written explicitly here on purpose, so
+      --  that mode is always visible at the declaration instead of
+      --  left implicit for "in".
       for Default_Switches ("Ada") use Dwm_Config.Ada_Compiler_Switches &
-        ("-gnatyM120", "-gnatyd", "-gnatyo", "-gnatys", "-gnatwa", "-gnatwe");
+        ("-gnatyM120", "-gnatyd", "-gnatyo", "-gnatys", "-gnaty-I", "-gnatwa", "-gnatwe");
    end Compiler;
 
    package Binder is

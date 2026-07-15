@@ -75,10 +75,10 @@ package Xlib_Thin is
    Current_Time    : constant := 0;
 
    --  Binds To_C_Bool(); see man 3 To_C_Bool.
-   function To_C_Bool (B : Boolean) return C_Int is
+   function To_C_Bool (B : in Boolean) return C_Int is
      (if B then 1 else 0);
    --  Binds From_C_Bool(); see man 3 From_C_Bool.
-   function From_C_Bool (V : C_Int) return Boolean is (V /= 0);
+   function From_C_Bool (V : in C_Int) return Boolean is (V /= 0);
 
    --------------------------------------------------------------------
    --  Event masks / types / modifiers (X11/X.h)                      --
@@ -576,11 +576,11 @@ package Xlib_Thin is
    --------------------------------------------------------------------
 
    --  Binds XOpenDisplay(); see man 3 XOpenDisplay.
-   function XOpenDisplay (Display_Name : Interfaces.C.Strings.chars_ptr) return Display;
+   function XOpenDisplay (Display_Name : in Interfaces.C.Strings.chars_ptr) return Display;
    pragma Import (C, XOpenDisplay, "XOpenDisplay");
 
    --  Binds XCloseDisplay(); see man 3 XCloseDisplay.
-   function XCloseDisplay (Disp : Display) return C_Int;
+   function XCloseDisplay (Disp : in Display) return C_Int;
    pragma Import (C, XCloseDisplay, "XCloseDisplay");
 
    --  Binds XSupportsLocale(); see man 3 XSupportsLocale.
@@ -588,79 +588,79 @@ package Xlib_Thin is
    pragma Import (C, XSupportsLocale, "XSupportsLocale");
 
    --  Binds XDefaultScreen(); see man 3 XDefaultScreen.
-   function XDefaultScreen (Disp : Display) return C_Int;
+   function XDefaultScreen (Disp : in Display) return C_Int;
    pragma Import (C, XDefaultScreen, "XDefaultScreen");
 
    --  Binds XDisplayWidth(); see man 3 XDisplayWidth.
-   function XDisplayWidth (Disp : Display; Screen_Num : C_Int) return C_Int;
+   function XDisplayWidth (Disp : in Display; Screen_Num : in C_Int) return C_Int;
    pragma Import (C, XDisplayWidth, "XDisplayWidth");
 
    --  Binds XDisplayHeight(); see man 3 XDisplayHeight.
-   function XDisplayHeight (Disp : Display; Screen_Num : C_Int) return C_Int;
+   function XDisplayHeight (Disp : in Display; Screen_Num : in C_Int) return C_Int;
    pragma Import (C, XDisplayHeight, "XDisplayHeight");
 
    --  Binds XRootWindow(); see man 3 XRootWindow.
-   function XRootWindow (Disp : Display; Screen_Num : C_Int) return Window;
+   function XRootWindow (Disp : in Display; Screen_Num : in C_Int) return Window;
    pragma Import (C, XRootWindow, "XRootWindow");
 
    --  Binds XDefaultRootWindow(); see man 3 XDefaultRootWindow.
-   function XDefaultRootWindow (Disp : Display) return Window;
+   function XDefaultRootWindow (Disp : in Display) return Window;
    pragma Import (C, XDefaultRootWindow, "XDefaultRootWindow");
 
    --  Binds XDefaultDepth(); see man 3 XDefaultDepth.
-   function XDefaultDepth (Disp : Display; Screen_Num : C_Int) return C_Int;
+   function XDefaultDepth (Disp : in Display; Screen_Num : in C_Int) return C_Int;
    pragma Import (C, XDefaultDepth, "XDefaultDepth");
 
    --  Binds XDefaultVisual(); see man 3 XDefaultVisual.
-   function XDefaultVisual (Disp : Display; Screen_Num : C_Int) return Visual;
+   function XDefaultVisual (Disp : in Display; Screen_Num : in C_Int) return Visual;
    pragma Import (C, XDefaultVisual, "XDefaultVisual");
 
    --  Binds XDefaultColormap(); see man 3 XDefaultColormap.
-   function XDefaultColormap (Disp : Display; Screen_Num : C_Int) return Colormap;
+   function XDefaultColormap (Disp : in Display; Screen_Num : in C_Int) return Colormap;
    pragma Import (C, XDefaultColormap, "XDefaultColormap");
 
    --  Binds XConnectionNumber(); see man 3 XConnectionNumber.
-   function XConnectionNumber (Disp : Display) return C_Int;
+   function XConnectionNumber (Disp : in Display) return C_Int;
    pragma Import (C, XConnectionNumber, "XConnectionNumber");
 
    --  Binds XSetErrorHandler(); see man 3 XSetErrorHandler.
-   function XSetErrorHandler (Handler : XErrorHandler) return XErrorHandler;
+   function XSetErrorHandler (Handler : in XErrorHandler) return XErrorHandler;
    pragma Import (C, XSetErrorHandler, "XSetErrorHandler");
 
    --  Binds XSelectInput(); see man 3 XSelectInput.
-   function XSelectInput (Disp : Display; Win : Window; Event_Mask : C_Mask) return C_Int;
+   function XSelectInput (Disp : in Display; Win : in Window; Event_Mask : in C_Mask) return C_Int;
    pragma Import (C, XSelectInput, "XSelectInput");
 
    --  Binds XSync(); see man 3 XSync.
-   function XSync (Disp : Display; Discard : C_Int) return C_Int;
+   function XSync (Disp : in Display; Discard : in C_Int) return C_Int;
    pragma Import (C, XSync, "XSync");
 
    --  Binds XFree(); see man 3 XFree.
-   function XFree (Data : System.Address) return C_Int;
+   function XFree (Data : in System.Address) return C_Int;
    pragma Import (C, XFree, "XFree");
 
    --  Binds XNextEvent(); see man 3 XNextEvent.
-   function XNextEvent (Disp : Display; Event_Return : access XEvent) return C_Int;
+   function XNextEvent (Disp : in Display; Event_Return : access XEvent) return C_Int;
    pragma Import (C, XNextEvent, "XNextEvent");
 
    --  Binds XMaskEvent(); see man 3 XMaskEvent.
    function XMaskEvent
-     (Disp : Display; Event_Mask : C_Mask; Event_Return : access XEvent) return C_Int;
+     (Disp : in Display; Event_Mask : in C_Mask; Event_Return : access XEvent) return C_Int;
    pragma Import (C, XMaskEvent, "XMaskEvent");
 
    --  Binds XCheckMaskEvent(); see man 3 XCheckMaskEvent.
    function XCheckMaskEvent
-     (Disp : Display; Event_Mask : C_Mask; Event_Return : access XEvent) return C_Int;
+     (Disp : in Display; Event_Mask : in C_Mask; Event_Return : access XEvent) return C_Int;
    pragma Import (C, XCheckMaskEvent, "XCheckMaskEvent");
 
    --  Binds XAllowEvents(); see man 3 XAllowEvents.
-   function XAllowEvents (Disp : Display; Event_Mode : C_Int; Evt_Time : Time_T) return C_Int;
+   function XAllowEvents (Disp : in Display; Event_Mode : in C_Int; Evt_Time : in Time_T) return C_Int;
    pragma Import (C, XAllowEvents, "XAllowEvents");
 
    --  Binds XQueryPointer(); see man 3 XQueryPointer.
    function XQueryPointer
-     (Disp         : Display;
-      Win          : Window;
+     (Disp         : in Display;
+      Win          : in Window;
       Root_Return  : access Window;
       Child_Return : access Window;
       Root_X       : access C_Int;
@@ -672,121 +672,121 @@ package Xlib_Thin is
 
    --  Binds XGetWindowAttributes(); see man 3 XGetWindowAttributes.
    function XGetWindowAttributes
-     (Disp : Display; Win : Window; Attrs : access XWindowAttributes) return C_Int;
+     (Disp : in Display; Win : in Window; Attrs : access XWindowAttributes) return C_Int;
    pragma Import (C, XGetWindowAttributes, "XGetWindowAttributes");
 
    --  Binds XChangeWindowAttributes(); see man 3 XChangeWindowAttributes.
    function XChangeWindowAttributes
-     (Disp : Display; Win : Window; Valuemask : C_ULong;
+     (Disp : in Display; Win : in Window; Valuemask : in C_ULong;
       Attrs : access XSetWindowAttributes) return C_Int;
    pragma Import (C, XChangeWindowAttributes, "XChangeWindowAttributes");
 
    --  Binds XCreateWindow(); see man 3 XCreateWindow.
    function XCreateWindow
-     (Disp         : Display;
-      Parent       : Window;
-      X, Y         : C_Int;
-      Width, Height : C_UInt;
-      Border_Width : C_UInt;
-      Depth        : C_Int;
-      Class        : C_UInt;
-      Vis          : Visual;
-      Valuemask    : C_ULong;
+     (Disp         : in Display;
+      Parent       : in Window;
+      X, Y         : in C_Int;
+      Width, Height : in C_UInt;
+      Border_Width : in C_UInt;
+      Depth        : in C_Int;
+      Class        : in C_UInt;
+      Vis          : in Visual;
+      Valuemask    : in C_ULong;
       Attrs        : access XSetWindowAttributes) return Window;
    pragma Import (C, XCreateWindow, "XCreateWindow");
 
    --  Binds XCreateSimpleWindow(); see man 3 XCreateSimpleWindow.
    function XCreateSimpleWindow
-     (Disp          : Display;
-      Parent        : Window;
-      X, Y          : C_Int;
-      Width, Height : C_UInt;
-      Border_Width  : C_UInt;
-      Border, Background : C_ULong) return Window;
+     (Disp          : in Display;
+      Parent        : in Window;
+      X, Y          : in C_Int;
+      Width, Height : in C_UInt;
+      Border_Width  : in C_UInt;
+      Border, Background : in C_ULong) return Window;
    pragma Import (C, XCreateSimpleWindow, "XCreateSimpleWindow");
 
    --  Binds XDestroyWindow(); see man 3 XDestroyWindow.
-   function XDestroyWindow (Disp : Display; Win : Window) return C_Int;
+   function XDestroyWindow (Disp : in Display; Win : in Window) return C_Int;
    pragma Import (C, XDestroyWindow, "XDestroyWindow");
 
    --  Binds XMapWindow(); see man 3 XMapWindow.
-   function XMapWindow (Disp : Display; Win : Window) return C_Int;
+   function XMapWindow (Disp : in Display; Win : in Window) return C_Int;
    pragma Import (C, XMapWindow, "XMapWindow");
 
    --  Binds XMapRaised(); see man 3 XMapRaised.
-   function XMapRaised (Disp : Display; Win : Window) return C_Int;
+   function XMapRaised (Disp : in Display; Win : in Window) return C_Int;
    pragma Import (C, XMapRaised, "XMapRaised");
 
    --  Binds XUnmapWindow(); see man 3 XUnmapWindow.
-   function XUnmapWindow (Disp : Display; Win : Window) return C_Int;
+   function XUnmapWindow (Disp : in Display; Win : in Window) return C_Int;
    pragma Import (C, XUnmapWindow, "XUnmapWindow");
 
    --  Binds XRaiseWindow(); see man 3 XRaiseWindow.
-   function XRaiseWindow (Disp : Display; Win : Window) return C_Int;
+   function XRaiseWindow (Disp : in Display; Win : in Window) return C_Int;
    pragma Import (C, XRaiseWindow, "XRaiseWindow");
 
    --  Binds XMoveWindow(); see man 3 XMoveWindow.
-   function XMoveWindow (Disp : Display; Win : Window; X, Y : C_Int) return C_Int;
+   function XMoveWindow (Disp : in Display; Win : in Window; X, Y : in C_Int) return C_Int;
    pragma Import (C, XMoveWindow, "XMoveWindow");
 
    --  Binds XMoveResizeWindow(); see man 3 XMoveResizeWindow.
    function XMoveResizeWindow
-     (Disp : Display; Win : Window; X, Y : C_Int; Width, Height : C_UInt) return C_Int;
+     (Disp : in Display; Win : in Window; X, Y : in C_Int; Width, Height : in C_UInt) return C_Int;
    pragma Import (C, XMoveResizeWindow, "XMoveResizeWindow");
 
    --  Binds XConfigureWindow(); see man 3 XConfigureWindow.
    function XConfigureWindow
-     (Disp : Display; Win : Window; Value_Mask : C_UInt;
+     (Disp : in Display; Win : in Window; Value_Mask : in C_UInt;
       Values : access XWindowChanges) return C_Int;
    pragma Import (C, XConfigureWindow, "XConfigureWindow");
 
    --  Binds XSetWindowBorder(); see man 3 XSetWindowBorder.
-   function XSetWindowBorder (Disp : Display; Win : Window; Border_Pixel : C_ULong) return C_Int;
+   function XSetWindowBorder (Disp : in Display; Win : in Window; Border_Pixel : in C_ULong) return C_Int;
    pragma Import (C, XSetWindowBorder, "XSetWindowBorder");
 
    --  Binds XDefineCursor(); see man 3 XDefineCursor.
-   function XDefineCursor (Disp : Display; Win : Window; Curs : Cursor) return C_Int;
+   function XDefineCursor (Disp : in Display; Win : in Window; Curs : in Cursor) return C_Int;
    pragma Import (C, XDefineCursor, "XDefineCursor");
 
    --  Binds XCreateFontCursor(); see man 3 XCreateFontCursor.
-   function XCreateFontCursor (Disp : Display; Shape : C_UInt) return Cursor;
+   function XCreateFontCursor (Disp : in Display; Shape : in C_UInt) return Cursor;
    pragma Import (C, XCreateFontCursor, "XCreateFontCursor");
 
    --  Binds XFreeCursor(); see man 3 XFreeCursor.
-   function XFreeCursor (Disp : Display; Curs : Cursor) return C_Int;
+   function XFreeCursor (Disp : in Display; Curs : in Cursor) return C_Int;
    pragma Import (C, XFreeCursor, "XFreeCursor");
 
    --  Binds XInternAtom(); see man 3 XInternAtom.
    function XInternAtom
-     (Disp : Display; Atom_Name : Interfaces.C.Strings.chars_ptr;
-      Only_If_Exists : C_Int) return Atom;
+     (Disp : in Display; Atom_Name : in Interfaces.C.Strings.chars_ptr;
+      Only_If_Exists : in C_Int) return Atom;
    pragma Import (C, XInternAtom, "XInternAtom");
 
    --  Binds XChangeProperty(); see man 3 XChangeProperty.
    function XChangeProperty
-     (Disp     : Display;
-      Win      : Window;
-      Property : Atom;
-      Prop_Type : Atom;
-      Format   : C_Int;
-      Mode     : C_Int;
-      Data     : System.Address;
-      Nelements : C_Int) return C_Int;
+     (Disp     : in Display;
+      Win      : in Window;
+      Property : in Atom;
+      Prop_Type : in Atom;
+      Format   : in C_Int;
+      Mode     : in C_Int;
+      Data     : in System.Address;
+      Nelements : in C_Int) return C_Int;
    pragma Import (C, XChangeProperty, "XChangeProperty");
 
    --  Binds XDeleteProperty(); see man 3 XDeleteProperty.
-   function XDeleteProperty (Disp : Display; Win : Window; Property : Atom) return C_Int;
+   function XDeleteProperty (Disp : in Display; Win : in Window; Property : in Atom) return C_Int;
    pragma Import (C, XDeleteProperty, "XDeleteProperty");
 
    --  Binds XGetWindowProperty(); see man 3 XGetWindowProperty.
    function XGetWindowProperty
-     (Disp                : Display;
-      Win                 : Window;
-      Property            : Atom;
-      Long_Offset         : C_Long;
-      Long_Length         : C_Long;
-      Delete              : C_Int;
-      Req_Type            : Atom;
+     (Disp                : in Display;
+      Win                 : in Window;
+      Property            : in Atom;
+      Long_Offset         : in C_Long;
+      Long_Length         : in C_Long;
+      Delete              : in C_Int;
+      Req_Type            : in Atom;
       Actual_Type_Return  : access Atom;
       Actual_Format_Return : access C_Int;
       Nitems_Return       : access C_ULong;
@@ -795,64 +795,64 @@ package Xlib_Thin is
    pragma Import (C, XGetWindowProperty, "XGetWindowProperty");
 
    --  Binds XGetClassHint(); see man 3 XGetClassHint.
-   function XGetClassHint (Disp : Display; Win : Window; Hints : access XClassHint) return C_Int;
+   function XGetClassHint (Disp : in Display; Win : in Window; Hints : access XClassHint) return C_Int;
    pragma Import (C, XGetClassHint, "XGetClassHint");
 
    --  Binds XSetClassHint(); see man 3 XSetClassHint.
-   function XSetClassHint (Disp : Display; Win : Window; Hints : access XClassHint) return C_Int;
+   function XSetClassHint (Disp : in Display; Win : in Window; Hints : access XClassHint) return C_Int;
    pragma Import (C, XSetClassHint, "XSetClassHint");
 
    --  Binds XGetTextProperty(); see man 3 XGetTextProperty.
    function XGetTextProperty
-     (Disp : Display; Win : Window; Text_Prop_Return : access XTextProperty;
-      Property : Atom) return C_Int;
+     (Disp : in Display; Win : in Window; Text_Prop_Return : access XTextProperty;
+      Property : in Atom) return C_Int;
    pragma Import (C, XGetTextProperty, "XGetTextProperty");
 
    --  Binds XmbTextPropertyToTextList(); see man 3 XmbTextPropertyToTextList.
    function XmbTextPropertyToTextList
-     (Disp : Display; Text_Prop : access XTextProperty;
+     (Disp : in Display; Text_Prop : access XTextProperty;
       List_Return : access System.Address; Count_Return : access C_Int) return C_Int;
    pragma Import (C, XmbTextPropertyToTextList, "XmbTextPropertyToTextList");
 
    --  Binds XFreeStringList(); see man 3 XFreeStringList.
-   procedure XFreeStringList (List : System.Address);
+   procedure XFreeStringList (List : in System.Address);
    pragma Import (C, XFreeStringList, "XFreeStringList");
 
    --  Binds XGetTransientForHint(); see man 3 XGetTransientForHint.
    function XGetTransientForHint
-     (Disp : Display; Win : Window; Prop_Window_Return : access Window) return C_Int;
+     (Disp : in Display; Win : in Window; Prop_Window_Return : access Window) return C_Int;
    pragma Import (C, XGetTransientForHint, "XGetTransientForHint");
 
    --  Binds XGetWMNormalHints(); see man 3 XGetWMNormalHints.
    function XGetWMNormalHints
-     (Disp : Display; Win : Window; Hints_Return : access XSizeHints;
+     (Disp : in Display; Win : in Window; Hints_Return : access XSizeHints;
       Supplied_Return : access C_Long) return C_Int;
    pragma Import (C, XGetWMNormalHints, "XGetWMNormalHints");
 
    --  Binds XGetWMHints(); see man 3 XGetWMHints.
-   function XGetWMHints (Disp : Display; Win : Window) return access XWMHints;
+   function XGetWMHints (Disp : in Display; Win : in Window) return access XWMHints;
    pragma Import (C, XGetWMHints, "XGetWMHints");
 
    --  Binds XSetWMHints(); see man 3 XSetWMHints.
-   function XSetWMHints (Disp : Display; Win : Window; Hints : access XWMHints) return C_Int;
+   function XSetWMHints (Disp : in Display; Win : in Window; Hints : access XWMHints) return C_Int;
    pragma Import (C, XSetWMHints, "XSetWMHints");
 
    --  Binds XGetWMProtocols(); see man 3 XGetWMProtocols.
    function XGetWMProtocols
-     (Disp : Display; Win : Window; Protocols_Return : access System.Address;
+     (Disp : in Display; Win : in Window; Protocols_Return : access System.Address;
       Count_Return : access C_Int) return C_Int;
    pragma Import (C, XGetWMProtocols, "XGetWMProtocols");
 
    --  Binds XSendEvent(); see man 3 XSendEvent.
    function XSendEvent
-     (Disp : Display; Win : Window; Propagate : C_Int; Event_Mask : C_Mask;
+     (Disp : in Display; Win : in Window; Propagate : in C_Int; Event_Mask : in C_Mask;
       Event_Send : access XEvent) return C_Int;
    pragma Import (C, XSendEvent, "XSendEvent");
 
    --  Binds XQueryTree(); see man 3 XQueryTree.
    function XQueryTree
-     (Disp             : Display;
-      Win              : Window;
+     (Disp             : in Display;
+      Win              : in Window;
       Root_Return      : access Window;
       Parent_Return    : access Window;
       Children_Return  : access System.Address;
@@ -860,113 +860,113 @@ package Xlib_Thin is
    pragma Import (C, XQueryTree, "XQueryTree");
 
    --  Binds XKillClient(); see man 3 XKillClient.
-   function XKillClient (Disp : Display; Resource : XID) return C_Int;
+   function XKillClient (Disp : in Display; Resource : in XID) return C_Int;
    pragma Import (C, XKillClient, "XKillClient");
 
    --  Binds XGrabServer(); see man 3 XGrabServer.
-   function XGrabServer (Disp : Display) return C_Int;
+   function XGrabServer (Disp : in Display) return C_Int;
    pragma Import (C, XGrabServer, "XGrabServer");
 
    --  Binds XUngrabServer(); see man 3 XUngrabServer.
-   function XUngrabServer (Disp : Display) return C_Int;
+   function XUngrabServer (Disp : in Display) return C_Int;
    pragma Import (C, XUngrabServer, "XUngrabServer");
 
    --  Binds XSetCloseDownMode(); see man 3 XSetCloseDownMode.
-   function XSetCloseDownMode (Disp : Display; Close_Mode : C_Int) return C_Int;
+   function XSetCloseDownMode (Disp : in Display; Close_Mode : in C_Int) return C_Int;
    pragma Import (C, XSetCloseDownMode, "XSetCloseDownMode");
 
    --  Binds XSetInputFocus(); see man 3 XSetInputFocus.
    function XSetInputFocus
-     (Disp : Display; Focus : Window; Revert_To : C_Int; Evt_Time : Time_T) return C_Int;
+     (Disp : in Display; Focus : in Window; Revert_To : in C_Int; Evt_Time : in Time_T) return C_Int;
    pragma Import (C, XSetInputFocus, "XSetInputFocus");
 
    --  Binds XGrabButton(); see man 3 XGrabButton.
    function XGrabButton
-     (Disp        : Display;
-      Button      : C_UInt;
-      Modifiers   : C_UInt;
-      Grab_Window : Window;
-      Owner_Events : C_Int;
-      Event_Mask  : C_UInt;
-      Pointer_Mode : C_Int;
-      Keyboard_Mode : C_Int;
-      Confine_To  : Window;
-      Curs        : Cursor) return C_Int;
+     (Disp        : in Display;
+      Button      : in C_UInt;
+      Modifiers   : in C_UInt;
+      Grab_Window : in Window;
+      Owner_Events : in C_Int;
+      Event_Mask  : in C_UInt;
+      Pointer_Mode : in C_Int;
+      Keyboard_Mode : in C_Int;
+      Confine_To  : in Window;
+      Curs        : in Cursor) return C_Int;
    pragma Import (C, XGrabButton, "XGrabButton");
 
    --  Binds XUngrabButton(); see man 3 XUngrabButton.
    function XUngrabButton
-     (Disp : Display; Button : C_UInt; Modifiers : C_UInt; Grab_Window : Window) return C_Int;
+     (Disp : in Display; Button : in C_UInt; Modifiers : in C_UInt; Grab_Window : in Window) return C_Int;
    pragma Import (C, XUngrabButton, "XUngrabButton");
 
    --  Binds XGrabKey(); see man 3 XGrabKey.
    function XGrabKey
-     (Disp         : Display;
-      Keycode      : C_Int;
-      Modifiers    : C_UInt;
-      Grab_Window  : Window;
-      Owner_Events : C_Int;
-      Pointer_Mode : C_Int;
-      Keyboard_Mode : C_Int) return C_Int;
+     (Disp         : in Display;
+      Keycode      : in C_Int;
+      Modifiers    : in C_UInt;
+      Grab_Window  : in Window;
+      Owner_Events : in C_Int;
+      Pointer_Mode : in C_Int;
+      Keyboard_Mode : in C_Int) return C_Int;
    pragma Import (C, XGrabKey, "XGrabKey");
 
    --  Binds XUngrabKey(); see man 3 XUngrabKey.
    function XUngrabKey
-     (Disp : Display; Keycode : C_Int; Modifiers : C_UInt; Grab_Window : Window) return C_Int;
+     (Disp : in Display; Keycode : in C_Int; Modifiers : in C_UInt; Grab_Window : in Window) return C_Int;
    pragma Import (C, XUngrabKey, "XUngrabKey");
 
    --  Binds XGrabPointer(); see man 3 XGrabPointer.
    function XGrabPointer
-     (Disp         : Display;
-      Grab_Window  : Window;
-      Owner_Events : C_Int;
-      Event_Mask   : C_UInt;
-      Pointer_Mode : C_Int;
-      Keyboard_Mode : C_Int;
-      Confine_To   : Window;
-      Curs         : Cursor;
-      Evt_Time     : Time_T) return C_Int;
+     (Disp         : in Display;
+      Grab_Window  : in Window;
+      Owner_Events : in C_Int;
+      Event_Mask   : in C_UInt;
+      Pointer_Mode : in C_Int;
+      Keyboard_Mode : in C_Int;
+      Confine_To   : in Window;
+      Curs         : in Cursor;
+      Evt_Time     : in Time_T) return C_Int;
    pragma Import (C, XGrabPointer, "XGrabPointer");
 
    --  Binds XUngrabPointer(); see man 3 XUngrabPointer.
-   function XUngrabPointer (Disp : Display; Evt_Time : Time_T) return C_Int;
+   function XUngrabPointer (Disp : in Display; Evt_Time : in Time_T) return C_Int;
    pragma Import (C, XUngrabPointer, "XUngrabPointer");
 
    --  Binds XWarpPointer(); see man 3 XWarpPointer.
    function XWarpPointer
-     (Disp     : Display;
-      Src_Win, Dest_Win : Window;
-      Src_X, Src_Y : C_Int;
-      Src_Width, Src_Height : C_UInt;
-      Dest_X, Dest_Y : C_Int) return C_Int;
+     (Disp     : in Display;
+      Src_Win, Dest_Win : in Window;
+      Src_X, Src_Y : in C_Int;
+      Src_Width, Src_Height : in C_UInt;
+      Dest_X, Dest_Y : in C_Int) return C_Int;
    pragma Import (C, XWarpPointer, "XWarpPointer");
 
    --  Binds XDisplayKeycodes(); see man 3 XDisplayKeycodes.
    function XDisplayKeycodes
-     (Disp : Display; Min_Keycodes_Return : access C_Int;
+     (Disp : in Display; Min_Keycodes_Return : access C_Int;
       Max_Keycodes_Return : access C_Int) return C_Int;
    pragma Import (C, XDisplayKeycodes, "XDisplayKeycodes");
 
    --  Binds XGetKeyboardMapping(); see man 3 XGetKeyboardMapping.
    function XGetKeyboardMapping
-     (Disp : Display; First_Keycode : KeyCode; Keycode_Count : C_Int;
+     (Disp : in Display; First_Keycode : in KeyCode; Keycode_Count : in C_Int;
       Keysyms_Per_Keycode_Return : access C_Int) return System.Address;
    pragma Import (C, XGetKeyboardMapping, "XGetKeyboardMapping");
 
    --  Binds XKeycodeToKeysym(); see man 3 XKeycodeToKeysym.
-   function XKeycodeToKeysym (Disp : Display; Kc : KeyCode; Index : C_Int) return KeySym;
+   function XKeycodeToKeysym (Disp : in Display; Kc : in KeyCode; Index : in C_Int) return KeySym;
    pragma Import (C, XKeycodeToKeysym, "XKeycodeToKeysym");
 
    --  Binds XKeysymToKeycode(); see man 3 XKeysymToKeycode.
-   function XKeysymToKeycode (Disp : Display; Sym : KeySym) return KeyCode;
+   function XKeysymToKeycode (Disp : in Display; Sym : in KeySym) return KeyCode;
    pragma Import (C, XKeysymToKeycode, "XKeysymToKeycode");
 
    --  Binds XGetModifierMapping(); see man 3 XGetModifierMapping.
-   function XGetModifierMapping (Disp : Display) return XModifierKeymap_Access;
+   function XGetModifierMapping (Disp : in Display) return XModifierKeymap_Access;
    pragma Import (C, XGetModifierMapping, "XGetModifierMapping");
 
    --  Binds XFreeModifiermap(); see man 3 XFreeModifiermap.
-   function XFreeModifiermap (Modmap : XModifierKeymap_Access) return C_Int;
+   function XFreeModifiermap (Modmap : in XModifierKeymap_Access) return C_Int;
    pragma Import (C, XFreeModifiermap, "XFreeModifiermap");
 
    --  Binds XRefreshKeyboardMapping(); see man 3 XRefreshKeyboardMapping.
@@ -976,11 +976,11 @@ package Xlib_Thin is
    --  Drawing primitives (used by Drw)
    --  Binds XCreatePixmap(); see man 3 XCreatePixmap.
    function XCreatePixmap
-     (Disp : Display; D : Drawable; Width, Height : C_UInt; Depth : C_UInt) return Pixmap;
+     (Disp : in Display; D : in Drawable; Width, Height : in C_UInt; Depth : in C_UInt) return Pixmap;
    pragma Import (C, XCreatePixmap, "XCreatePixmap");
 
    --  Binds XFreePixmap(); see man 3 XFreePixmap.
-   function XFreePixmap (Disp : Display; Pmap : Pixmap) return C_Int;
+   function XFreePixmap (Disp : in Display; Pmap : in Pixmap) return C_Int;
    pragma Import (C, XFreePixmap, "XFreePixmap");
 
    --  XGCValues is never populated (dwm always passes Values => null,
@@ -991,39 +991,39 @@ package Xlib_Thin is
 
    --  Binds XCreateGC(); see man 3 XCreateGC.
    function XCreateGC
-     (Disp : Display; D : Drawable; Valuemask : C_ULong; Values : XGCValues_Access) return GC;
+     (Disp : in Display; D : in Drawable; Valuemask : in C_ULong; Values : in XGCValues_Access) return GC;
    pragma Import (C, XCreateGC, "XCreateGC");
 
    --  Binds XFreeGC(); see man 3 XFreeGC.
-   function XFreeGC (Disp : Display; The_GC : GC) return C_Int;
+   function XFreeGC (Disp : in Display; The_GC : in GC) return C_Int;
    pragma Import (C, XFreeGC, "XFreeGC");
 
    --  Binds XSetLineAttributes(); see man 3 XSetLineAttributes.
    function XSetLineAttributes
-     (Disp : Display; The_GC : GC; Line_Width : C_UInt; Line_Style, Cap_Style, Join_Style : C_Int)
+     (Disp : in Display; The_GC : in GC; Line_Width : in C_UInt; Line_Style, Cap_Style, Join_Style : in C_Int)
       return C_Int;
    pragma Import (C, XSetLineAttributes, "XSetLineAttributes");
 
    --  Binds XSetForeground(); see man 3 XSetForeground.
-   function XSetForeground (Disp : Display; The_GC : GC; Foreground : C_ULong) return C_Int;
+   function XSetForeground (Disp : in Display; The_GC : in GC; Foreground : in C_ULong) return C_Int;
    pragma Import (C, XSetForeground, "XSetForeground");
 
    --  Binds XFillRectangle(); see man 3 XFillRectangle.
    function XFillRectangle
-     (Disp : Display; D : Drawable; The_GC : GC; X, Y : C_Int; Width, Height : C_UInt)
+     (Disp : in Display; D : in Drawable; The_GC : in GC; X, Y : in C_Int; Width, Height : in C_UInt)
       return C_Int;
    pragma Import (C, XFillRectangle, "XFillRectangle");
 
    --  Binds XDrawRectangle(); see man 3 XDrawRectangle.
    function XDrawRectangle
-     (Disp : Display; D : Drawable; The_GC : GC; X, Y : C_Int; Width, Height : C_UInt)
+     (Disp : in Display; D : in Drawable; The_GC : in GC; X, Y : in C_Int; Width, Height : in C_UInt)
       return C_Int;
    pragma Import (C, XDrawRectangle, "XDrawRectangle");
 
    --  Binds XCopyArea(); see man 3 XCopyArea.
    function XCopyArea
-     (Disp : Display; Src, Dest : Drawable; The_GC : GC; Src_X, Src_Y : C_Int;
-      Width, Height : C_UInt; Dest_X, Dest_Y : C_Int) return C_Int;
+     (Disp : in Display; Src, Dest : in Drawable; The_GC : in GC; Src_X, Src_Y : in C_Int;
+      Width, Height : in C_UInt; Dest_X, Dest_Y : in C_Int) return C_Int;
    pragma Import (C, XCopyArea, "XCopyArea");
 
 end Xlib_Thin;

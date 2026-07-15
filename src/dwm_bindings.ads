@@ -38,7 +38,7 @@ package Dwm_Bindings is
    --  Tag_Bit (0) selects tag "1". Used throughout the Keys table
    --  below to build each tag's view/toggle-view/tag/toggle-tag
    --  bindings.
-   function Tag_Bit (Tag : Natural) return Dwm_Types.Tag_Mask is (2 ** Tag);
+   function Tag_Bit (Tag : in Natural) return Dwm_Types.Tag_Mask is (2 ** Tag);
 
    Keys : aliased constant Dwm_Types.Key_Array :=
      ((Mod_Key, Keysyms.XK_p, Dwm_Actions.Spawn'Access, (Command => Config.Dmenu_Cmd'Access, others => <>)),

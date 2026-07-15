@@ -37,14 +37,14 @@ package body Dwm_Actions is
    function C_Setsid return Interfaces.C.int;
    pragma Import (C, C_Setsid, "setsid");
 
-   function C_Close (Fd : Interfaces.C.int) return Interfaces.C.int;
+   function C_Close (Fd : in Interfaces.C.int) return Interfaces.C.int;
    pragma Import (C, C_Close, "close");
 
-   function C_Signal (Signum : Interfaces.C.int; Handler : System.Address) return System.Address;
+   function C_Signal (Signum : in Interfaces.C.int; Handler : in System.Address) return System.Address;
    pragma Import (C, C_Signal, "signal");
 
    function C_Execvp
-     (File : Interfaces.C.Strings.chars_ptr; Argv : System.Address) return Interfaces.C.int;
+     (File : in Interfaces.C.Strings.chars_ptr; Argv : in System.Address) return Interfaces.C.int;
    pragma Import (C, C_Execvp, "execvp");
 
    SIGCHLD : constant Interfaces.C.int := 17;
@@ -59,7 +59,7 @@ package body Dwm_Actions is
    --  Subprogram bodies (alphabetical order; -gnatyo)                --
    --------------------------------------------------------------------
 
-   procedure Focus_Mon (Argument : Dwm_Types.Arg) is
+   procedure Focus_Mon (Argument : in Dwm_Types.Arg) is
       Monitor : Dwm_Types.Monitor_Access;
    begin
       if Dwm_State.Get_Monitors.Next = null then
@@ -74,7 +74,7 @@ package body Dwm_Actions is
       Dwm_Clients.Focus (null);
    end Focus_Mon;
 
-   procedure Focus_Stack (Argument : Dwm_Types.Arg) is
+   procedure Focus_Stack (Argument : in Dwm_Types.Arg) is
       Client, Cur : Dwm_Types.Client_Access := null;
    begin
       if Dwm_State.Get_Selected_Monitor.Selected_Client = null
@@ -116,14 +116,14 @@ package body Dwm_Actions is
       end if;
    end Focus_Stack;
 
-   procedure Inc_Nmaster (Argument : Dwm_Types.Arg) is
+   procedure Inc_Nmaster (Argument : in Dwm_Types.Arg) is
    begin
       Dwm_State.Get_Selected_Monitor.Num_Master :=
         Util.Max_Integer (Dwm_State.Get_Selected_Monitor.Num_Master + Argument.Int_Value, 0);
       Dwm_Clients.Arrange (Dwm_State.Get_Selected_Monitor);
    end Inc_Nmaster;
 
-   procedure Kill_Client (Argument : Dwm_Types.Arg) is
+   procedure Kill_Client (Argument : in Dwm_Types.Arg) is
       pragma Unreferenced (Argument);
       Ignore : Xlib_Thin.C_Int;
       Ignore_Handler : Xlib_Thin.XErrorHandler;
@@ -132,8 +132,8 @@ package body Dwm_Actions is
       if Dwm_State.Get_Selected_Monitor.Selected_Client = null then
          return;
       end if;
-      Ignore_Bool := Dwm_Clients.Send_Event
-        (Dwm_State.Get_Selected_Monitor.Selected_Client, Dwm_State.Get_Wm_Atom (Dwm_State.WM_Delete));
+      Dwm_Clients.Send_Event
+        (Dwm_State.Get_Selected_Monitor.Selected_Client, Dwm_State.Get_Wm_Atom (Dwm_State.WM_Delete), Ignore_Bool);
       if not Ignore_Bool then
          Ignore := Xlib_Thin.XGrabServer (Dwm_State.Get_Display);
          Ignore_Handler := Xlib_Thin.XSetErrorHandler (Dwm_Clients.X_Error_Dummy'Access);
@@ -145,11 +145,12 @@ package body Dwm_Actions is
       end if;
    end Kill_Client;
 
-   procedure Move_Mouse (Argument : Dwm_Types.Arg) is
+   procedure Move_Mouse (Argument : in Dwm_Types.Arg) is
       pragma Unreferenced (Argument);
       Client : constant Dwm_Types.Client_Access := Dwm_State.Get_Selected_Monitor.Selected_Client;
       Monitor : Dwm_Types.Monitor_Access;
-      Root_X, Root_Y, Orig_X, Orig_Y, New_X, New_Y : Integer;
+      Root_Ptr : Dwm_Xutil.Root_Ptr_Result;
+      Orig_X, Orig_Y, New_X, New_Y : Integer;
       Event : aliased Xlib_Thin.XEvent;
       Any_Event : Xlib_Thin.XAnyEvent with Address => Event'Address;
       pragma Import (Ada, Any_Event);
@@ -171,7 +172,8 @@ package body Dwm_Actions is
       if Grab_Result /= Xlib_Thin.GrabSuccess then
          return;
       end if;
-      if not Dwm_Xutil.Get_Root_Ptr (Root_X, Root_Y) then
+      Root_Ptr := Dwm_Xutil.Get_Root_Ptr;
+      if not Root_Ptr.Found then
          return;
       end if;
       loop
@@ -191,8 +193,8 @@ package body Dwm_Actions is
                   goto Continue_Loop;
                end if;
                Last_Time := Motion_Event.Evt_Time;
-               New_X := Orig_X + (Integer (Motion_Event.X) - Root_X);
-               New_Y := Orig_Y + (Integer (Motion_Event.Y) - Root_Y);
+               New_X := Orig_X + (Integer (Motion_Event.X) - Root_Ptr.Pos_X);
+               New_Y := Orig_Y + (Integer (Motion_Event.Y) - Root_Ptr.Pos_Y);
                if abs (Dwm_State.Get_Selected_Monitor.Work_X - New_X) < Config.Snap then
                   New_X := Dwm_State.Get_Selected_Monitor.Work_X;
                elsif abs
@@ -238,13 +240,13 @@ package body Dwm_Actions is
       end if;
    end Move_Mouse;
 
-   procedure Quit (Argument : Dwm_Types.Arg) is
+   procedure Quit (Argument : in Dwm_Types.Arg) is
       pragma Unreferenced (Argument);
    begin
       Dwm_State.Set_Running (False);
    end Quit;
 
-   procedure Resize_Mouse (Argument : Dwm_Types.Arg) is
+   procedure Resize_Mouse (Argument : in Dwm_Types.Arg) is
       pragma Unreferenced (Argument);
       Client : constant Dwm_Types.Client_Access := Dwm_State.Get_Selected_Monitor.Selected_Client;
       Monitor : Dwm_Types.Monitor_Access;
@@ -336,7 +338,7 @@ package body Dwm_Actions is
       end if;
    end Resize_Mouse;
 
-   procedure Set_Layout (Argument : Dwm_Types.Arg) is
+   procedure Set_Layout (Argument : in Dwm_Types.Arg) is
    begin
       if Argument.Layout = null
         or else Argument.Layout /= Dwm_State.Get_Selected_Monitor.Layout (Dwm_State.Get_Selected_Monitor.Sel_Lt)
@@ -355,7 +357,7 @@ package body Dwm_Actions is
       end if;
    end Set_Layout;
 
-   procedure Set_Mfact (Argument : Dwm_Types.Arg) is
+   procedure Set_Mfact (Argument : in Dwm_Types.Arg) is
       New_Factor : Float;
    begin
       if Dwm_State.Get_Selected_Monitor.Layout (Dwm_State.Get_Selected_Monitor.Sel_Lt).Arrange = null then
@@ -371,7 +373,7 @@ package body Dwm_Actions is
       Dwm_Clients.Arrange (Dwm_State.Get_Selected_Monitor);
    end Set_Mfact;
 
-   procedure Spawn (Argument : Dwm_Types.Arg) is
+   procedure Spawn (Argument : in Dwm_Types.Arg) is
       Pid : Interfaces.C.int;
       Ignore : Interfaces.C.int;
       Ignore_Addr : System.Address;
@@ -401,7 +403,7 @@ package body Dwm_Actions is
       end if;
    end Spawn;
 
-   procedure Tag (Argument : Dwm_Types.Arg) is
+   procedure Tag (Argument : in Dwm_Types.Arg) is
    begin
       if Dwm_State.Get_Selected_Monitor.Selected_Client /= null and then (Argument.Uint_Value and Tagmask) /= 0 then
          Dwm_State.Get_Selected_Monitor.Selected_Client.Tags := Argument.Uint_Value and Tagmask;
@@ -410,7 +412,7 @@ package body Dwm_Actions is
       end if;
    end Tag;
 
-   procedure Tag_Mon (Argument : Dwm_Types.Arg) is
+   procedure Tag_Mon (Argument : in Dwm_Types.Arg) is
    begin
       if Dwm_State.Get_Selected_Monitor.Selected_Client = null or else Dwm_State.Get_Monitors.Next = null then
          return;
@@ -419,7 +421,7 @@ package body Dwm_Actions is
         (Dwm_State.Get_Selected_Monitor.Selected_Client, Dwm_Monitors.Dir_To_Mon (Argument.Int_Value));
    end Tag_Mon;
 
-   procedure Toggle_Bar (Argument : Dwm_Types.Arg) is
+   procedure Toggle_Bar (Argument : in Dwm_Types.Arg) is
       pragma Unreferenced (Argument);
       Ignore : Xlib_Thin.C_Int;
    begin
@@ -433,7 +435,7 @@ package body Dwm_Actions is
       Dwm_Clients.Arrange (Dwm_State.Get_Selected_Monitor);
    end Toggle_Bar;
 
-   procedure Toggle_Floating (Argument : Dwm_Types.Arg) is
+   procedure Toggle_Floating (Argument : in Dwm_Types.Arg) is
       pragma Unreferenced (Argument);
    begin
       if Dwm_State.Get_Selected_Monitor.Selected_Client = null then
@@ -455,7 +457,7 @@ package body Dwm_Actions is
       Dwm_Clients.Arrange (Dwm_State.Get_Selected_Monitor);
    end Toggle_Floating;
 
-   procedure Toggle_Tag (Argument : Dwm_Types.Arg) is
+   procedure Toggle_Tag (Argument : in Dwm_Types.Arg) is
       New_Tags : Dwm_Types.Tag_Mask;
    begin
       if Dwm_State.Get_Selected_Monitor.Selected_Client = null then
@@ -469,7 +471,7 @@ package body Dwm_Actions is
       end if;
    end Toggle_Tag;
 
-   procedure Toggle_View (Argument : Dwm_Types.Arg) is
+   procedure Toggle_View (Argument : in Dwm_Types.Arg) is
       New_Tag_Set : constant Dwm_Types.Tag_Mask :=
         Dwm_State.Get_Selected_Monitor.Tag_Set (Dwm_State.Get_Selected_Monitor.Sel_Tags)
           xor (Argument.Uint_Value and Tagmask);
@@ -481,7 +483,7 @@ package body Dwm_Actions is
       end if;
    end Toggle_View;
 
-   procedure View (Argument : Dwm_Types.Arg) is
+   procedure View (Argument : in Dwm_Types.Arg) is
    begin
       if (Argument.Uint_Value and Tagmask)
         = Dwm_State.Get_Selected_Monitor.Tag_Set (Dwm_State.Get_Selected_Monitor.Sel_Tags)
@@ -497,7 +499,7 @@ package body Dwm_Actions is
       Dwm_Clients.Arrange (Dwm_State.Get_Selected_Monitor);
    end View;
 
-   procedure Zoom (Argument : Dwm_Types.Arg) is
+   procedure Zoom (Argument : in Dwm_Types.Arg) is
       pragma Unreferenced (Argument);
       Client : Dwm_Types.Client_Access := Dwm_State.Get_Selected_Monitor.Selected_Client;
    begin

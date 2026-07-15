@@ -6,7 +6,7 @@ package body Dwm_Layouts is
 
    use type Dwm_Types.Client_Access;
 
-   procedure Monocle (Monitor : Dwm_Types.Monitor_Access) is
+   procedure Monocle (Monitor : in Dwm_Types.Monitor_Access) is
       Visible_Count : Natural := 0;
       Client : Dwm_Types.Client_Access;
    begin
@@ -30,7 +30,7 @@ package body Dwm_Layouts is
       end loop;
    end Monocle;
 
-   procedure Tile (Monitor : Dwm_Types.Monitor_Access) is
+   procedure Tile (Monitor : in Dwm_Types.Monitor_Access) is
       Client_Count : Integer := 0;
       Client       : Dwm_Types.Client_Access;
       Master_Width : Integer;

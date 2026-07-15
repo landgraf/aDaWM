@@ -164,15 +164,15 @@ package Dwm_Types is
 
    --  True if Client has any tag in common with its monitor's currently
    --  viewed tag set (dwm.c's ISVISIBLE(C) macro).
-   function Is_Visible (Client : Client_Access) return Boolean is
+   function Is_Visible (Client : in Client_Access) return Boolean is
      ((Client.Tags and Client.Monitor.Tag_Set (Client.Monitor.Sel_Tags)) /= 0);
 
    --  Outer window width including both borders (dwm.c's WIDTH(X)).
-   function Outer_Width (Client : Client_Access) return Integer is
+   function Outer_Width (Client : in Client_Access) return Integer is
      (Client.Width + 2 * Client.Border_Width);
 
    --  Outer window height including both borders (dwm.c's HEIGHT(X)).
-   function Outer_Height (Client : Client_Access) return Integer is
+   function Outer_Height (Client : in Client_Access) return Integer is
      (Client.Height + 2 * Client.Border_Width);
 
 end Dwm_Types;

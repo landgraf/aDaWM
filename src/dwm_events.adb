@@ -17,13 +17,14 @@ package body Dwm_Events is
    use type Dwm_Types.Button_Array_Access;
    use type Dwm_Types.Key_Func;
 
-   function Text_Width (S : String) return Natural is
-     (Drw.Fontset_Get_Width (Dwm_State.Get_Drw_Ctx, S) + Dwm_State.Get_Left_Right_Pad);
-
-   function Clean_Mask (Mask : Xlib_Thin.C_UInt) return Xlib_Thin.C_UInt is
+   function Clean_Mask (Mask : in Xlib_Thin.C_UInt) return Xlib_Thin.C_UInt is
      (Mask and not (Dwm_State.Get_Num_Lock_Mask or Xlib_Thin.LockMask)
       and (Xlib_Thin.ShiftMask or Xlib_Thin.ControlMask or Xlib_Thin.Mod1Mask or Xlib_Thin.Mod2Mask
              or Xlib_Thin.Mod3Mask or Xlib_Thin.Mod4Mask or Xlib_Thin.Mod5Mask));
+
+   --  Private helper; spec given here (rather than in dwm_events.ads)
+   --  since it's not part of the public API.
+   procedure Text_Width (S : in String; Result : out Natural);
 
    --------------------------------------------------------------------
 
@@ -36,6 +37,7 @@ package body Dwm_Events is
       Monitor : Dwm_Types.Monitor_Access;
       Idx : Natural := 0;
       Cur_X : Integer := 0;
+      Tag_Width : Natural;
       Ignore : Xlib_Thin.C_Int;
    begin
       Monitor := Dwm_Monitors.Win_To_Mon (Button_Event.Win);
@@ -46,7 +48,8 @@ package body Dwm_Events is
       end if;
       if Button_Event.Win = Dwm_State.Get_Selected_Monitor.Bar_Window then
          loop
-            Cur_X := Cur_X + Text_Width (Config.Tags (Config.Tags'First + Idx).all);
+            Text_Width (Config.Tags (Config.Tags'First + Idx).all, Tag_Width);
+            Cur_X := Cur_X + Tag_Width;
             exit when not (Integer (Button_Event.X) >= Cur_X);
             Idx := Idx + 1;
             exit when not (Idx < Config.Tags'Length);
@@ -54,19 +57,25 @@ package body Dwm_Events is
          if Idx < Config.Tags'Length then
             Click := Dwm_Types.Clk_Tag_Bar;
             Arg_Val := (Uint_Value => 2 ** Idx, others => <>);
-         elsif Integer (Button_Event.X)
-                 < Cur_X
-                     + Text_Width (Dwm_Types.Lt_Symbol_Strings.To_String (Dwm_State.Get_Selected_Monitor.Lt_Symbol))
-         then
-            Click := Dwm_Types.Clk_Lt_Symbol;
-         elsif Integer (Button_Event.X)
-                 > Dwm_State.Get_Selected_Monitor.Work_Width
-                     - Text_Width (Dwm_Types.Client_Name_Strings.To_String (Dwm_State.Get_Stext))
-                     + Dwm_State.Get_Left_Right_Pad - 2
-         then
-            Click := Dwm_Types.Clk_Status_Text;
          else
-            Click := Dwm_Types.Clk_Win_Title;
+            declare
+               Lt_Symbol_Width, Stext_Width : Natural;
+            begin
+               Text_Width
+                 (Dwm_Types.Lt_Symbol_Strings.To_String (Dwm_State.Get_Selected_Monitor.Lt_Symbol),
+                  Lt_Symbol_Width);
+               Text_Width (Dwm_Types.Client_Name_Strings.To_String (Dwm_State.Get_Stext), Stext_Width);
+               if Integer (Button_Event.X) < Cur_X + Lt_Symbol_Width then
+                  Click := Dwm_Types.Clk_Lt_Symbol;
+               elsif Integer (Button_Event.X)
+                       > Dwm_State.Get_Selected_Monitor.Work_Width - Stext_Width
+                           + Dwm_State.Get_Left_Right_Pad - 2
+               then
+                  Click := Dwm_Types.Clk_Status_Text;
+               else
+                  Click := Dwm_Types.Clk_Win_Title;
+               end if;
+            end;
          end if;
       else
          Client := Dwm_Clients.Win_To_Client (Button_Event.Win);
@@ -121,6 +130,7 @@ package body Dwm_Events is
       Configure_Event : Xlib_Thin.XConfigureEvent with Address => Event.all'Address;
       pragma Import (Ada, Configure_Event);
       Dirty : Boolean;
+      Geom_Dirty : Boolean;
       Monitor : Dwm_Types.Monitor_Access;
       Client  : Dwm_Types.Client_Access;
       Ignore : Xlib_Thin.C_Int;
@@ -132,7 +142,8 @@ package body Dwm_Events is
         or else Dwm_State.Get_Screen_Height /= Integer (Configure_Event.Height);
       Dwm_State.Set_Screen_Width (Integer (Configure_Event.Width));
       Dwm_State.Set_Screen_Height (Integer (Configure_Event.Height));
-      if Dwm_Monitors.Update_Geom or else Dirty then
+      Dwm_Monitors.Update_Geom (Geom_Dirty);
+      if Geom_Dirty or else Dirty then
          Drw.Resize (Dwm_State.Get_Drw_Ctx, Dwm_State.Get_Screen_Width, Dwm_State.Get_Bar_Height);
          Dwm_Bar.Update_Bars;
          Monitor := Dwm_State.Get_Monitors;
@@ -289,6 +300,12 @@ package body Dwm_Events is
          end if;
       end if;
    end Property_Notify;
+
+   procedure Text_Width (S : in String; Result : out Natural) is
+   begin
+      Drw.Fontset_Get_Width (Dwm_State.Get_Drw_Ctx, S, Result);
+      Result := Result + Dwm_State.Get_Left_Right_Pad;
+   end Text_Width;
 
    procedure Unmap_Notify (Event : access Xlib_Thin.XEvent) is
       Unmap_Event : Xlib_Thin.XUnmapEvent with Address => Event.all'Address;

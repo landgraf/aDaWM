@@ -32,18 +32,18 @@ package body Dwm_Monitors is
    --  Private helpers used only by Update_Geom's Xinerama path; specs
    --  given here (rather than in dwm_monitors.ads) since they're not
    --  part of the public API.
-   function Info_At (Base : System.Address; Index : Natural) return Xinerama_Thin.XineramaScreenInfo;
+   function Info_At (Base : in System.Address; Index : in Natural) return Xinerama_Thin.XineramaScreenInfo;
 
    type Info_Array is array (Natural range <>) of Xinerama_Thin.XineramaScreenInfo;
 
    function Is_Unique_Geom
-     (Unique : Info_Array; Count : Natural; Info : Xinerama_Thin.XineramaScreenInfo) return Boolean;
+     (Unique : in Info_Array; Count : in Natural; Info : in Xinerama_Thin.XineramaScreenInfo) return Boolean;
 
    --------------------------------------------------------------------
    --  Subprogram bodies (alphabetical order; -gnatyo)                --
    --------------------------------------------------------------------
 
-   procedure Cleanup_Mon (Monitor : Dwm_Types.Monitor_Access) is
+   procedure Cleanup_Mon (Monitor : in Dwm_Types.Monitor_Access) is
       Cur : Dwm_Types.Monitor_Access;
       Freed_Monitor : Dwm_Types.Monitor_Access := Monitor;
       Ignore : Xlib_Thin.C_Int;
@@ -80,7 +80,7 @@ package body Dwm_Monitors is
       return Monitor;
    end Create_Mon;
 
-   function Dir_To_Mon (Direction : Integer) return Dwm_Types.Monitor_Access is
+   function Dir_To_Mon (Direction : in Integer) return Dwm_Types.Monitor_Access is
       Result : Dwm_Types.Monitor_Access := null;
    begin
       if Direction > 0 then
@@ -115,7 +115,7 @@ package body Dwm_Monitors is
       end if;
    end Expose;
 
-   function Info_At (Base : System.Address; Index : Natural) return Xinerama_Thin.XineramaScreenInfo
+   function Info_At (Base : in System.Address; Index : in Natural) return Xinerama_Thin.XineramaScreenInfo
    is
    begin
       return To_Info_Access
@@ -123,7 +123,7 @@ package body Dwm_Monitors is
    end Info_At;
 
    function Is_Unique_Geom
-     (Unique : Info_Array; Count : Natural; Info : Xinerama_Thin.XineramaScreenInfo) return Boolean
+     (Unique : in Info_Array; Count : in Natural; Info : in Xinerama_Thin.XineramaScreenInfo) return Boolean
    is
    begin
       for Idx in 0 .. Count - 1 loop
@@ -136,7 +136,7 @@ package body Dwm_Monitors is
       return True;
    end Is_Unique_Geom;
 
-   function Rect_To_Mon (Pos_X, Pos_Y, Width, Height : Integer) return Dwm_Types.Monitor_Access is
+   function Rect_To_Mon (Pos_X, Pos_Y, Width, Height : in Integer) return Dwm_Types.Monitor_Access is
       Monitor, Best : Dwm_Types.Monitor_Access;
       Best_Area, Cur_Area : Integer := 0;
    begin
@@ -159,7 +159,7 @@ package body Dwm_Monitors is
       return Best;
    end Rect_To_Mon;
 
-   procedure Update_Bar_Pos (Monitor : Dwm_Types.Monitor_Access) is
+   procedure Update_Bar_Pos (Monitor : in Dwm_Types.Monitor_Access) is
    begin
       Monitor.Work_Y := Monitor.Screen_Y;
       Monitor.Work_Height := Monitor.Screen_Height;
@@ -173,10 +173,10 @@ package body Dwm_Monitors is
       end if;
    end Update_Bar_Pos;
 
-   function Update_Geom return Boolean is
-      Dirty : Boolean := False;
+   procedure Update_Geom (Dirty : out Boolean) is
       Active : Xlib_Thin.C_Int;
    begin
+      Dirty := False;
       Active := Xinerama_Thin.XineramaIsActive (Dwm_State.Get_Display);
       if Active /= 0 then
          declare
@@ -294,16 +294,20 @@ package body Dwm_Monitors is
          Dwm_State.Set_Selected_Monitor (Dwm_State.Get_Monitors);
          Dwm_State.Set_Selected_Monitor (Win_To_Mon (Dwm_State.Get_Root));
       end if;
-      return Dirty;
    end Update_Geom;
 
-   function Win_To_Mon (Window : Xlib_Thin.Window) return Dwm_Types.Monitor_Access is
-      Pos_X, Pos_Y : Integer;
+   function Win_To_Mon (Window : in Xlib_Thin.Window) return Dwm_Types.Monitor_Access is
       Client : Dwm_Types.Client_Access;
       Monitor : Dwm_Types.Monitor_Access;
    begin
-      if Window = Dwm_State.Get_Root and then Dwm_Xutil.Get_Root_Ptr (Pos_X, Pos_Y) then
-         return Rect_To_Mon (Pos_X, Pos_Y, 1, 1);
+      if Window = Dwm_State.Get_Root then
+         declare
+            Ptr : constant Dwm_Xutil.Root_Ptr_Result := Dwm_Xutil.Get_Root_Ptr;
+         begin
+            if Ptr.Found then
+               return Rect_To_Mon (Ptr.Pos_X, Ptr.Pos_Y, 1, 1);
+            end if;
+         end;
       end if;
       Monitor := Dwm_State.Get_Monitors;
       while Monitor /= null loop

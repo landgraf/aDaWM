@@ -19,7 +19,7 @@ package body Drw is
    procedure Free_Scheme is new Ada.Unchecked_Deallocation
      (Dwm_Types.Color_Scheme, Dwm_Types.Color_Scheme_Access);
 
-   function New_String_Ptr (S : String) return Interfaces.C.Strings.chars_ptr
+   function New_String_Ptr (S : in String) return Interfaces.C.Strings.chars_ptr
      renames Interfaces.C.Strings.New_String;
 
    subtype Codepoint_Type is Interfaces.Unsigned_32;
@@ -37,13 +37,13 @@ package body Drw is
    --  utf8decode(): returns the byte length consumed, the codepoint
    --  (UTF_Invalid on error), and whether the sequence was invalid.
    procedure Utf8_Decode
-     (S : String; Pos : Positive; Codepoint : out Codepoint_Type;
+     (S : in String; Pos : in Positive; Codepoint : out Codepoint_Type;
       Length : out Natural; Err : out Boolean);
 
    --  Implementation detail of Fontset_Create; library users should use
    --  Fontset_Create instead (mirrors xfont_create()'s C comment).
    function Xfont_Create
-     (Drw_Ctx : Context_Access; Fontname : String; Fontpattern : Xft_Thin.FcPattern) return Font_Access;
+     (Drw_Ctx : in Context_Access; Fontname : in String; Fontpattern : in Xft_Thin.FcPattern) return Font_Access;
 
    procedure Xfont_Free (Fnt : in out Font_Access);
 
@@ -56,7 +56,7 @@ package body Drw is
    --  pointer handed in by an untrusted caller the way drw.c's public
    --  API had to allow for.
    procedure Color_Create
-     (Drw_Ctx : Context_Access; Dest : access Xft_Thin.XftColor; Color_Name : String)
+     (Drw_Ctx : in Context_Access; Dest : access Xft_Thin.XftColor; Color_Name : in String)
    is
       Vis : constant Xlib_Thin.Visual := Xlib_Thin.XDefaultVisual (Drw_Ctx.Disp, Drw_Ctx.Screen);
       Cmap : constant Xlib_Thin.Colormap := Xlib_Thin.XDefaultColormap (Drw_Ctx.Disp, Drw_Ctx.Screen);
@@ -70,7 +70,7 @@ package body Drw is
       end if;
    end Color_Create;
 
-   procedure Color_Free (Drw_Ctx : Context_Access; Color : access Xft_Thin.XftColor) is
+   procedure Color_Free (Drw_Ctx : in Context_Access; Color : access Xft_Thin.XftColor) is
       Vis : constant Xlib_Thin.Visual := Xlib_Thin.XDefaultVisual (Drw_Ctx.Disp, Drw_Ctx.Screen);
       Cmap : constant Xlib_Thin.Colormap := Xlib_Thin.XDefaultColormap (Drw_Ctx.Disp, Drw_Ctx.Screen);
    begin
@@ -82,8 +82,8 @@ package body Drw is
    --------------------------------------------------------------------
 
    function Create
-     (Disp : Xlib_Thin.Display; Screen : Xlib_Thin.C_Int; Win : Xlib_Thin.Window;
-      Width, Height : Natural) return Context_Access
+     (Disp : in Xlib_Thin.Display; Screen : in Xlib_Thin.C_Int; Win : in Xlib_Thin.Window;
+      Width, Height : in Natural) return Context_Access
    is
       Drw_Ctx : constant Context_Access := new Context;
       Ignore : Xlib_Thin.C_Int;
@@ -102,7 +102,7 @@ package body Drw is
       return Drw_Ctx;
    end Create;
 
-   function Cursor_Create (Drw_Ctx : Context_Access; Shape : Xlib_Thin.C_UInt) return Cursor_Access is
+   function Cursor_Create (Drw_Ctx : in Context_Access; Shape : in Xlib_Thin.C_UInt) return Cursor_Access is
       Result : Cursor_Access;
    begin
       if Drw_Ctx = null then
@@ -113,7 +113,7 @@ package body Drw is
       return Result;
    end Cursor_Create;
 
-   procedure Cursor_Free (Drw_Ctx : Context_Access; Cursor : in out Cursor_Access) is
+   procedure Cursor_Free (Drw_Ctx : in Context_Access; Cursor : in out Cursor_Access) is
       Ignore : Xlib_Thin.C_Int;
    begin
       if Cursor = null then
@@ -124,7 +124,7 @@ package body Drw is
    end Cursor_Free;
 
    procedure Font_Get_Exts
-     (Fnt : Font_Access; Txt : String; Len : Natural; Width : out Natural; Height : out Natural)
+     (Fnt : in Font_Access; Txt : in String; Len : in Natural; Width : out Natural; Height : out Natural)
    is
       Ext : aliased Xft_Thin.XGlyphInfo;
    begin
@@ -139,7 +139,7 @@ package body Drw is
       Height := Fnt.Height;
    end Font_Get_Exts;
 
-   function Fontset_Create (Drw_Ctx : Context_Access; Fonts : Dwm_Types.Command) return Font_Access is
+   function Fontset_Create (Drw_Ctx : in Context_Access; Fonts : in Dwm_Types.Command) return Font_Access is
       Result : Font_Access := null;
       Loaded_Font : Font_Access;
    begin
@@ -153,7 +153,6 @@ package body Drw is
             Result := Loaded_Font;
          end if;
       end loop;
-      Drw_Ctx.Fonts := Result;
       return Result;
    end Fontset_Create;
 
@@ -167,24 +166,27 @@ package body Drw is
       end if;
    end Fontset_Free;
 
-   function Fontset_Get_Width (Drw_Ctx : Context_Access; Txt : String) return Natural is
+   procedure Fontset_Get_Width (Drw_Ctx : in Context_Access; Txt : in String; Result : out Natural) is
+      Raw : Integer;
    begin
       if Drw_Ctx = null or else Drw_Ctx.Fonts = null or else Txt'Length = 0 then
-         return 0;
+         Result := 0;
+         return;
       end if;
-      return Text (Drw_Ctx, 0, 0, 0, 0, 0, Txt, 0);
+      Text (Drw_Ctx, 0, 0, 0, 0, 0, Txt, 0, Raw);
+      Result := Raw;
    end Fontset_Get_Width;
 
-   function Fontset_Get_Width_Clamp
-     (Drw_Ctx : Context_Access; Txt : String; Max_Width : Natural) return Natural
+   procedure Fontset_Get_Width_Clamp
+     (Drw_Ctx : in Context_Access; Txt : in String; Max_Width : in Natural; Result : out Natural)
    is
-      Tmp : Natural := 0;
+      Tmp : Integer := 0;
    begin
       if Drw_Ctx /= null and then Drw_Ctx.Fonts /= null and then Txt'Length > 0 and then Max_Width > 0
       then
-         Tmp := Drw.Text (Drw_Ctx, 0, 0, 0, 0, 0, Txt, Max_Width);
+         Drw.Text (Drw_Ctx, 0, 0, 0, 0, 0, Txt, Max_Width, Tmp);
       end if;
-      return Natural'Min (Max_Width, Tmp);
+      Result := Natural'Min (Max_Width, Natural (Tmp));
    end Fontset_Get_Width_Clamp;
 
    procedure Free (Drw_Ctx : in out Context_Access) is
@@ -197,7 +199,7 @@ package body Drw is
    end Free;
 
    procedure Map
-     (Drw_Ctx : Context_Access; Win : Xlib_Thin.Window; Pos_X, Pos_Y : Integer; Width, Height : Natural)
+     (Drw_Ctx : in Context_Access; Win : in Xlib_Thin.Window; Pos_X, Pos_Y : in Integer; Width, Height : in Natural)
    is
       Ignore : Xlib_Thin.C_Int;
    begin
@@ -216,8 +218,8 @@ package body Drw is
    --------------------------------------------------------------------
 
    procedure Rect
-     (Drw_Ctx : Context_Access; Pos_X, Pos_Y : Integer; Width, Height : Natural;
-      Filled, Invert : Integer)
+     (Drw_Ctx : in Context_Access; Pos_X, Pos_Y : in Integer; Width, Height : in Natural;
+      Filled, Invert : in Integer)
    is
       Ignore : Xlib_Thin.C_Int;
    begin
@@ -240,7 +242,7 @@ package body Drw is
       end if;
    end Rect;
 
-   procedure Resize (Drw_Ctx : Context_Access; Width, Height : Natural) is
+   procedure Resize (Drw_Ctx : in Context_Access; Width, Height : in Natural) is
       Ignore : Xlib_Thin.C_Int;
    begin
       if Drw_Ctx = null then
@@ -257,7 +259,7 @@ package body Drw is
    end Resize;
 
    function Scheme_Create
-     (Drw_Ctx : Context_Access; Color_Names : Dwm_Types.Color_Name_Triple)
+     (Drw_Ctx : in Context_Access; Color_Names : in Dwm_Types.Color_Name_Triple)
       return Dwm_Types.Color_Scheme_Access
    is
       Result : constant Dwm_Types.Color_Scheme_Access := new Dwm_Types.Color_Scheme;
@@ -268,7 +270,7 @@ package body Drw is
       return Result;
    end Scheme_Create;
 
-   procedure Scheme_Free (Drw_Ctx : Context_Access; Scheme : in out Dwm_Types.Color_Scheme_Access) is
+   procedure Scheme_Free (Drw_Ctx : in Context_Access; Scheme : in out Dwm_Types.Color_Scheme_Access) is
    begin
       if Drw_Ctx = null or else Scheme = null then
          return;
@@ -279,14 +281,14 @@ package body Drw is
       Free_Scheme (Scheme);
    end Scheme_Free;
 
-   procedure Set_Fontset (Drw_Ctx : Context_Access; Set : Font_Access) is
+   procedure Set_Fontset (Drw_Ctx : in Context_Access; Set : in Font_Access) is
    begin
       if Drw_Ctx /= null then
          Drw_Ctx.Fonts := Set;
       end if;
    end Set_Fontset;
 
-   procedure Set_Scheme (Drw_Ctx : Context_Access; Scheme : Dwm_Types.Color_Scheme_Access) is
+   procedure Set_Scheme (Drw_Ctx : in Context_Access; Scheme : in Dwm_Types.Color_Scheme_Access) is
    begin
       if Drw_Ctx /= null then
          Drw_Ctx.Scheme := Scheme;
@@ -304,9 +306,9 @@ package body Drw is
    Invalid_Glyph  : constant String := Character'Val (16#EF#) & Character'Val (16#BF#) &
      Character'Val (16#BD#);  --  UTF-8 encoding of U+FFFD
 
-   function Text
-     (Drw_Ctx : Context_Access; Pos_X, Pos_Y : Integer; Width, Height : Natural; Left_Pad : Natural;
-      Txt : String; Invert : Integer) return Integer
+   procedure Text
+     (Drw_Ctx : in Context_Access; Pos_X, Pos_Y : in Integer; Width, Height : in Natural; Left_Pad : in Natural;
+      Txt : in String; Invert : in Integer; Result : out Integer)
    is
       Render : constant Boolean := Pos_X /= 0 or else Pos_Y /= 0 or else Width /= 0 or else Height /= 0;
       Cur_X  : Integer := Pos_X;
@@ -320,7 +322,8 @@ package body Drw is
       if Drw_Ctx = null or else (Render and then (Drw_Ctx.Scheme = null or else Width = 0))
         or else Txt'Length = 0 or else Drw_Ctx.Fonts = null
       then
-         return 0;
+         Result := 0;
+         return;
       end if;
 
       if not Render then
@@ -335,7 +338,8 @@ package body Drw is
            (Drw_Ctx.Disp, Drw_Ctx.Drawable, Drw_Ctx.Gc, Xlib_Thin.C_Int (Pos_X), Xlib_Thin.C_Int (Pos_Y),
             Xlib_Thin.C_UInt (Width), Xlib_Thin.C_UInt (Height));
          if Width < Left_Pad then
-            return Pos_X + Width;
+            Result := Pos_X + Width;
+            return;
          end if;
          Draw := Xft_Thin.XftDrawCreate
            (Drw_Ctx.Disp, Drw_Ctx.Drawable, Xlib_Thin.XDefaultVisual (Drw_Ctx.Disp, Drw_Ctx.Screen),
@@ -346,10 +350,10 @@ package body Drw is
 
       Usedfont := Drw_Ctx.Fonts;
       if Ellipsis_Width = 0 and then Render then
-         Ellipsis_Width := Fontset_Get_Width (Drw_Ctx, "...");
+         Fontset_Get_Width (Drw_Ctx, "...", Ellipsis_Width);
       end if;
       if Invalid_Width = 0 and then Render then
-         Invalid_Width := Fontset_Get_Width (Drw_Ctx, Invalid_Glyph);
+         Fontset_Get_Width (Drw_Ctx, Invalid_Glyph, Invalid_Width);
       end if;
 
       Outer_Loop :
@@ -436,16 +440,22 @@ package body Drw is
 
             if Err and then (not Render or else Invalid_Width < Cur_W) then
                if Render then
-                  Ignore := Xlib_Thin.C_Int
-                    (Text (Drw_Ctx, Cur_X, Pos_Y, Cur_W, Height, 0, Invalid_Glyph, Invert));
+                  declare
+                     Ignore_Result : Integer;
+                  begin
+                     Text (Drw_Ctx, Cur_X, Pos_Y, Cur_W, Height, 0, Invalid_Glyph, Invert, Ignore_Result);
+                  end;
                end if;
                Cur_X := Cur_X + Invalid_Width;
                Cur_W := Cur_W - Invalid_Width;
             end if;
 
             if Render and then Overflow then
-               Ignore := Xlib_Thin.C_Int
-                 (Text (Drw_Ctx, Ellipsis_X, Pos_Y, Ellipsis_W, Height, 0, "...", Invert));
+               declare
+                  Ignore_Result : Integer;
+               begin
+                  Text (Drw_Ctx, Ellipsis_X, Pos_Y, Ellipsis_W, Height, 0, "...", Invert, Ignore_Result);
+               end;
             end if;
 
             exit Outer_Loop when Text_Pos > Txt'Last or else Overflow;
@@ -471,7 +481,7 @@ package body Drw is
                         Fccharset : constant Xft_Thin.FcCharSet := Xft_Thin.FcCharSetCreate;
                         Fcpattern : Xft_Thin.FcPattern;
                         Match     : Xft_Thin.FcPattern;
-                        Result    : aliased Xft_Thin.FcResult;
+                        Match_Status : aliased Xft_Thin.FcResult;
                         Bool_Ignore : Xft_Thin.FcBool;
                      begin
                         Bool_Ignore := Xft_Thin.FcCharSetAddChar
@@ -487,7 +497,8 @@ package body Drw is
                         Bool_Ignore := Xft_Thin.FcConfigSubstitute
                           (null, Fcpattern, Xft_Thin.FcMatchPattern);
                         Xft_Thin.FcDefaultSubstitute (Fcpattern);
-                        Match := Xft_Thin.XftFontMatch (Drw_Ctx.Disp, Drw_Ctx.Screen, Fcpattern, Result'Access);
+                        Match := Xft_Thin.XftFontMatch
+                          (Drw_Ctx.Disp, Drw_Ctx.Screen, Fcpattern, Match_Status'Access);
                         Xft_Thin.FcCharSetDestroy (Fccharset);
                         Xft_Thin.FcPatternDestroy (Fcpattern);
 
@@ -525,11 +536,11 @@ package body Drw is
          Xft_Thin.XftDrawDestroy (Draw);
       end if;
 
-      return Cur_X + (if Render then Cur_W else 0);
+      Result := Cur_X + (if Render then Cur_W else 0);
    end Text;
 
    procedure Utf8_Decode
-     (S : String; Pos : Positive; Codepoint : out Codepoint_Type;
+     (S : in String; Pos : in Positive; Codepoint : out Codepoint_Type;
       Length : out Natural; Err : out Boolean)
    is
       B0  : constant Natural := Character'Pos (S (Pos));
@@ -569,7 +580,7 @@ package body Drw is
    end Utf8_Decode;
 
    function Xfont_Create
-     (Drw_Ctx : Context_Access; Fontname : String; Fontpattern : Xft_Thin.FcPattern) return Font_Access
+     (Drw_Ctx : in Context_Access; Fontname : in String; Fontpattern : in Xft_Thin.FcPattern) return Font_Access
    is
       Xfont   : Xft_Thin.XftFont_Access := null;
       Pattern : Xft_Thin.FcPattern := null;

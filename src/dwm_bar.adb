@@ -13,10 +13,15 @@ package body Dwm_Bar is
    use type Dwm_Types.Client_Access;
    use type Dwm_Types.Monitor_Access;
 
-   function Text_Width (S : String) return Natural is
-     (Drw.Fontset_Get_Width (Dwm_State.Get_Drw_Ctx, S) + Dwm_State.Get_Left_Right_Pad);
+   --  Private helper; spec given here (rather than in dwm_bar.ads)
+   --  since it's not part of the public API.
+   procedure Text_Width (S : in String; Result : out Natural);
 
-   procedure Draw_Bar (Monitor : Dwm_Types.Monitor_Access) is
+   --------------------------------------------------------------------
+   --  Subprogram bodies (alphabetical order; -gnatyo)                --
+   --------------------------------------------------------------------
+
+   procedure Draw_Bar (Monitor : in Dwm_Types.Monitor_Access) is
       Box_Pad : constant Natural := Dwm_State.Get_Drw_Ctx.Fonts.Height / 9;
       Box_Width : constant Natural := Dwm_State.Get_Drw_Ctx.Fonts.Height / 6 + 2;
       Occupied, Urgent : Dwm_Types.Tag_Mask := 0;
@@ -25,6 +30,7 @@ package body Dwm_Bar is
       Remaining_Width : Integer;
       Status_Width : Integer := 0;
       Ignore : Integer;
+      Ignore_Natural : Natural;
    begin
       if not Monitor.Show_Bar then
          return;
@@ -32,12 +38,11 @@ package body Dwm_Bar is
 
       if Monitor = Dwm_State.Get_Selected_Monitor then
          Drw.Set_Scheme (Dwm_State.Get_Drw_Ctx, Dwm_State.Get_Scheme (Dwm_Types.Scheme_Norm));
-         Status_Width :=
-           Text_Width (Dwm_Types.Client_Name_Strings.To_String (Dwm_State.Get_Stext))
-             - Dwm_State.Get_Left_Right_Pad + 2;
-         Ignore := Drw.Text
+         Text_Width (Dwm_Types.Client_Name_Strings.To_String (Dwm_State.Get_Stext), Ignore_Natural);
+         Status_Width := Ignore_Natural - Dwm_State.Get_Left_Right_Pad + 2;
+         Drw.Text
            (Dwm_State.Get_Drw_Ctx, Monitor.Work_Width - Status_Width, 0, Status_Width, Dwm_State.Get_Bar_Height, 0,
-            Dwm_Types.Client_Name_Strings.To_String (Dwm_State.Get_Stext), 0);
+            Dwm_Types.Client_Name_Strings.To_String (Dwm_State.Get_Stext), 0, Ignore);
       end if;
 
       Client := Monitor.Clients;
@@ -53,16 +58,18 @@ package body Dwm_Bar is
       for Idx in Config.Tags'Range loop
          declare
             Bit : constant Dwm_Types.Tag_Mask := 2 ** (Idx - Config.Tags'First);
-            Label_Width : constant Natural := Text_Width (Config.Tags (Idx).all);
+            Label_Width : Natural;
          begin
+            Text_Width (Config.Tags (Idx).all, Label_Width);
             Drw.Set_Scheme
               (Dwm_State.Get_Drw_Ctx,
                Dwm_State.Get_Scheme
                  (if (Monitor.Tag_Set (Monitor.Sel_Tags) and Bit) /= 0
                   then Dwm_Types.Scheme_Sel else Dwm_Types.Scheme_Norm));
-            Ignore := Drw.Text
-              (Dwm_State.Get_Drw_Ctx, Cur_X, 0, Label_Width, Dwm_State.Get_Bar_Height, Dwm_State.Get_Left_Right_Pad / 2,
-               Config.Tags (Idx).all, (if (Urgent and Bit) /= 0 then 1 else 0));
+            Drw.Text
+              (Dwm_State.Get_Drw_Ctx, Cur_X, 0, Label_Width, Dwm_State.Get_Bar_Height,
+               Dwm_State.Get_Left_Right_Pad / 2, Config.Tags (Idx).all, (if (Urgent and Bit) /= 0 then 1 else 0),
+               Ignore);
             if (Occupied and Bit) /= 0 then
                Drw.Rect
                  (Dwm_State.Get_Drw_Ctx, Cur_X + Box_Pad, Box_Pad, Box_Width, Box_Width,
@@ -77,12 +84,15 @@ package body Dwm_Bar is
       end loop;
 
       declare
-         Label_Width : constant Natural := Text_Width (Dwm_Types.Lt_Symbol_Strings.To_String (Monitor.Lt_Symbol));
+         Label_Width : Natural;
+         New_Cur_X : Integer;
       begin
+         Text_Width (Dwm_Types.Lt_Symbol_Strings.To_String (Monitor.Lt_Symbol), Label_Width);
          Drw.Set_Scheme (Dwm_State.Get_Drw_Ctx, Dwm_State.Get_Scheme (Dwm_Types.Scheme_Norm));
-         Cur_X := Drw.Text
+         Drw.Text
            (Dwm_State.Get_Drw_Ctx, Cur_X, 0, Label_Width, Dwm_State.Get_Bar_Height, Dwm_State.Get_Left_Right_Pad / 2,
-            Dwm_Types.Lt_Symbol_Strings.To_String (Monitor.Lt_Symbol), 0);
+            Dwm_Types.Lt_Symbol_Strings.To_String (Monitor.Lt_Symbol), 0, New_Cur_X);
+         Cur_X := New_Cur_X;
       end;
 
       Remaining_Width := Monitor.Work_Width - Status_Width - Cur_X;
@@ -92,10 +102,10 @@ package body Dwm_Bar is
               (Dwm_State.Get_Drw_Ctx,
                Dwm_State.Get_Scheme
                  (if Monitor = Dwm_State.Get_Selected_Monitor then Dwm_Types.Scheme_Sel else Dwm_Types.Scheme_Norm));
-            Ignore := Drw.Text
+            Drw.Text
               (Dwm_State.Get_Drw_Ctx, Cur_X, 0, Remaining_Width, Dwm_State.Get_Bar_Height,
                Dwm_State.Get_Left_Right_Pad / 2,
-               Dwm_Types.Client_Name_Strings.To_String (Monitor.Selected_Client.Name), 0);
+               Dwm_Types.Client_Name_Strings.To_String (Monitor.Selected_Client.Name), 0, Ignore);
             if Monitor.Selected_Client.Is_Floating then
                Drw.Rect
                  (Dwm_State.Get_Drw_Ctx, Cur_X + Box_Pad, Box_Pad, Box_Width, Box_Width,
@@ -117,6 +127,12 @@ package body Dwm_Bar is
          Monitor := Monitor.Next;
       end loop;
    end Draw_Bars;
+
+   procedure Text_Width (S : in String; Result : out Natural) is
+   begin
+      Drw.Fontset_Get_Width (Dwm_State.Get_Drw_Ctx, S, Result);
+      Result := Result + Dwm_State.Get_Left_Right_Pad;
+   end Text_Width;
 
    procedure Update_Bars is
       Attrs : aliased Xlib_Thin.XSetWindowAttributes;

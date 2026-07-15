@@ -20,7 +20,7 @@ package body Dwm_Xutil is
    function To_Chars_Ptr is new Ada.Unchecked_Conversion
      (System.Address, Interfaces.C.Strings.chars_ptr);
 
-   function Get_Atom_Prop (Window : Xlib_Thin.Window; Prop : Xlib_Thin.Atom) return Xlib_Thin.Atom is
+   function Get_Atom_Prop (Window : in Xlib_Thin.Window; Prop : in Xlib_Thin.Atom) return Xlib_Thin.Atom is
       Actual_Type : aliased Xlib_Thin.Atom;
       Format : aliased Xlib_Thin.C_Int;
       Nitems, Bytes_After : aliased Xlib_Thin.C_ULong;
@@ -41,7 +41,7 @@ package body Dwm_Xutil is
       return Result;
    end Get_Atom_Prop;
 
-   function Get_Root_Ptr (Pos_X, Pos_Y : out Integer) return Boolean is
+   function Get_Root_Ptr return Root_Ptr_Result is
       Dummy_Win : aliased Xlib_Thin.Window;
       Dummy_Int1, Dummy_Int2 : aliased Xlib_Thin.C_Int;
       Dummy_Mask : aliased Xlib_Thin.C_UInt;
@@ -51,12 +51,10 @@ package body Dwm_Xutil is
       Ok := Xlib_Thin.XQueryPointer
         (Dwm_State.Get_Display, Dwm_State.Get_Root, Dummy_Win'Access, Dummy_Win'Access,
          Root_X'Access, Root_Y'Access, Dummy_Int1'Access, Dummy_Int2'Access, Dummy_Mask'Access);
-      Pos_X := Integer (Root_X);
-      Pos_Y := Integer (Root_Y);
-      return Ok /= 0;
+      return (Pos_X => Integer (Root_X), Pos_Y => Integer (Root_Y), Found => Ok /= 0);
    end Get_Root_Ptr;
 
-   function Get_State (Window : Xlib_Thin.Window) return Long_Integer is
+   function Get_State (Window : in Xlib_Thin.Window) return Long_Integer is
       Format : aliased Xlib_Thin.C_Int;
       Nitems, Bytes_After : aliased Xlib_Thin.C_ULong;
       Actual_Type : aliased Xlib_Thin.Atom;
@@ -81,7 +79,7 @@ package body Dwm_Xutil is
       return Result;
    end Get_State;
 
-   function Get_Text_Prop (Window : Xlib_Thin.Window; Prop : Xlib_Thin.Atom) return String is
+   function Get_Text_Prop (Window : in Xlib_Thin.Window; Prop : in Xlib_Thin.Atom) return String is
       Name : aliased Xlib_Thin.XTextProperty;
       Ok   : Xlib_Thin.C_Int;
    begin

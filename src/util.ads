@@ -7,16 +7,16 @@
 package Util is
 
    --  Returns the larger of Left and Right (dwm.c's MAX macro).
-   function Max_Integer (Left, Right : Integer) return Integer is (if Left > Right then Left else Right);
+   function Max_Integer (Left, Right : in Integer) return Integer is (if Left > Right then Left else Right);
 
    --  Returns the smaller of Left and Right (dwm.c's MIN macro).
-   function Min_Integer (Left, Right : Integer) return Integer is (if Left < Right then Left else Right);
+   function Min_Integer (Left, Right : in Integer) return Integer is (if Left < Right then Left else Right);
 
    --  Prints Msg to standard error and terminates the process with a
    --  failure status (equivalent to C's die(), which always exit(1)s).
    --  If With_Errno, the OS error text for errno is appended, mirroring
    --  die()'s "%s: %s", strerror(errno) convention for a "...:" message.
-   procedure Die (Msg : String; With_Errno : Boolean := False);
+   procedure Die (Msg : in String; With_Errno : in Boolean := False);
    pragma No_Return (Die);
 
 end Util;

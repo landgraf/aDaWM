@@ -12,7 +12,7 @@ package body Util is
    function Errno_Location return System.Address;
    pragma Import (C, Errno_Location, "__errno_location");
 
-   function Strerror (Errnum : Interfaces.C.int) return Interfaces.C.Strings.chars_ptr;
+   function Strerror (Errnum : in Interfaces.C.int) return Interfaces.C.Strings.chars_ptr;
    pragma Import (C, Strerror, "strerror");
 
    type Int_Access is access all Interfaces.C.int;
@@ -22,7 +22,7 @@ package body Util is
    function Errno_Value return Interfaces.C.int is
      (To_Int_Access (Errno_Location).all);
 
-   procedure Die (Msg : String; With_Errno : Boolean := False) is
+   procedure Die (Msg : in String; With_Errno : in Boolean := False) is
    begin
       Ada.Text_IO.Put (Ada.Text_IO.Standard_Error, Msg);
       if With_Errno then

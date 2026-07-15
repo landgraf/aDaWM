@@ -11,11 +11,11 @@ package Dwm_Layouts is
    --  The default "[]=" layout: up to Num_Master tiled clients stacked
    --  in a master column on the left sized by Master_Factor, the rest
    --  stacked in a second column filling the remaining width (tile()).
-   procedure Tile (Monitor : Dwm_Types.Monitor_Access);
+   procedure Tile (Monitor : in Dwm_Types.Monitor_Access);
 
    --  The "[M]" layout: every tiled client resized to fill the whole
    --  window area, overlapping (monocle()); Monitor.Lt_Symbol is
    --  overridden to show the visible client count, e.g. "[3]".
-   procedure Monocle (Monitor : Dwm_Types.Monitor_Access);
+   procedure Monocle (Monitor : in Dwm_Types.Monitor_Access);
 
 end Dwm_Layouts;
