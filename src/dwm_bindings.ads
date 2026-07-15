@@ -34,6 +34,10 @@ package Dwm_Bindings is
    Shift  : constant Xlib_Thin.C_UInt := Xlib_Thin.ShiftMask;
    Ctrl   : constant Xlib_Thin.C_UInt := Xlib_Thin.ControlMask;
 
+   --  The single-bit tag mask for tag index Tag (0-based), e.g.
+   --  Tag_Bit (0) selects tag "1". Used throughout the Keys table
+   --  below to build each tag's view/toggle-view/tag/toggle-tag
+   --  bindings.
    function Tag_Bit (Tag : Natural) return Dwm_Types.Tag_Mask is (2 ** Tag);
 
    Keys : aliased constant Dwm_Types.Key_Array :=

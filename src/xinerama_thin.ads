@@ -19,9 +19,11 @@ package Xinerama_Thin is
 
    type Screen_Info_Array is array (C_Int range <>) of XineramaScreenInfo;
 
+   --  Binds XineramaIsActive(); see man 3 XineramaIsActive.
    function XineramaIsActive (Disp : Xlib_Thin.Display) return C_Int;
    pragma Import (C, XineramaIsActive, "XineramaIsActive");
 
+   --  Binds XineramaQueryScreens(); see man 3 XineramaQueryScreens.
    function XineramaQueryScreens
      (Disp : Xlib_Thin.Display; Number : access C_Int) return System.Address;
    pragma Import (C, XineramaQueryScreens, "XineramaQueryScreens");

@@ -8,7 +8,14 @@ with Dwm_Types;
 --  never needs to be named back from there.
 package Dwm_Layouts is
 
+   --  The default "[]=" layout: up to Nmaster tiled clients stacked in
+   --  a master column on the left sized by Mfact, the rest stacked in
+   --  a second column filling the remaining width (tile()).
    procedure Tile (M : Dwm_Types.Monitor_Access);
+
+   --  The "[M]" layout: every tiled client resized to fill the whole
+   --  window area, overlapping (monocle()); M.Ltsymbol is overridden
+   --  to show the visible client count, e.g. "[3]".
    procedure Monocle (M : Dwm_Types.Monitor_Access);
 
 end Dwm_Layouts;

@@ -6,7 +6,10 @@
 --  so callers just use "new" directly.
 package Util is
 
+   --  Returns the larger of A and B (dwm.c's MAX macro).
    function Max_Integer (A, B : Integer) return Integer is (if A > B then A else B);
+
+   --  Returns the smaller of A and B (dwm.c's MIN macro).
    function Min_Integer (A, B : Integer) return Integer is (if A < B then A else B);
 
    --  Prints Msg to standard error and terminates the process with a

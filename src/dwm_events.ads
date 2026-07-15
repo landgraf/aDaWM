@@ -9,16 +9,64 @@ with Xlib_Thin;
 --  dispatch table used by Dwm_Main.Run.
 package Dwm_Events is
 
+   --  Handles a ButtonPress: figures out what was clicked (a tag, the
+   --  layout symbol, the status text, a client's titlebar area, or a
+   --  client window) and its Click_Kind, focusing the client/monitor
+   --  under the pointer first if needed, then runs every matching
+   --  binding in Dwm_State.Buttons (buttonpress()).
    procedure Button_Press (Ev : access Xlib_Thin.XEvent);
+
+   --  Handles a ClientMessage: applies a _NET_WM_STATE fullscreen
+   --  toggle/set/unset, or marks the sender urgent if it requested
+   --  _NET_ACTIVE_WINDOW while not already selected (clientmessage()).
    procedure Client_Message (Ev : access Xlib_Thin.XEvent);
+
+   --  Handles a ConfigureNotify on the root window: on an actual size
+   --  change (or Dwm_Monitors.Update_Geom reporting one), resizes the
+   --  drawing context and bars, resizes any fullscreen clients to
+   --  match, and re-arranges (configurenotify()).
    procedure Configure_Notify (Ev : access Xlib_Thin.XEvent);
+
+   --  Handles a DestroyNotify: unmanages the destroyed window's client,
+   --  if it was managed (destroynotify()).
    procedure Destroy_Notify (Ev : access Xlib_Thin.XEvent);
+
+   --  Handles an EnterNotify (pointer entered a window): switches the
+   --  selected monitor if the pointer entered a different one, then
+   --  focuses the client under the pointer (enternotify()). Ignores
+   --  synthetic/inferior-detail crossings on non-root windows, per
+   --  dwm's usual focus-follows-mouse filtering.
    procedure Enter_Notify (Ev : access Xlib_Thin.XEvent);
+
+   --  Handles a FocusIn on a window other than the selected client:
+   --  re-asserts X input focus onto the selected client, working
+   --  around clients that (mis)grab focus for themselves (focusin()).
    procedure Focus_In (Ev : access Xlib_Thin.XEvent);
+
+   --  Handles a KeyPress: translates the keycode to a keysym and runs
+   --  every matching binding in Dwm_State.Keys (keypress()).
    procedure Key_Press (Ev : access Xlib_Thin.XEvent);
+
+   --  Handles a MappingNotify: refreshes Xlib's cached keyboard
+   --  mapping and, if the keyboard mapping itself (not just modifiers)
+   --  changed, re-grabs all keybindings (mappingnotify()).
    procedure Mapping_Notify (Ev : access Xlib_Thin.XEvent);
+
+   --  Handles a MotionNotify on the root window: switches the selected
+   --  monitor when the pointer crosses into a different one
+   --  (motionnotify()); this is what makes focus-follows-mouse work
+   --  across monitor boundaries even with no window under the pointer.
    procedure Motion_Notify (Ev : access Xlib_Thin.XEvent);
+
+   --  Handles a PropertyNotify: reacts to the root window's name
+   --  changing (refreshes the status text) or, for a managed client,
+   --  to its transient-for/size-hints/WM_HINTS/name/window-type
+   --  properties changing (propertynotify()).
    procedure Property_Notify (Ev : access Xlib_Thin.XEvent);
+
+   --  Handles an UnmapNotify: marks the client withdrawn if this was a
+   --  synthetic unmap (the client is still there, just requested to be
+   --  hidden), or unmanages it otherwise (unmapnotify()).
    procedure Unmap_Notify (Ev : access Xlib_Thin.XEvent);
 
    --  Dispatch table indexed by X event type (dwm.c's handler[LASTEvent]);

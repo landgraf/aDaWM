@@ -154,15 +154,22 @@ package Dwm_Types is
       Lt          : Layout_Pair := (others => null);
    end record;
 
+   --  Deallocates a Client (unmanage()'s free(c)); the access value is
+   --  set to null on return, per Ada.Unchecked_Deallocation.
    procedure Free_Client is new Ada.Unchecked_Deallocation (Client, Client_Access);
+
+   --  Deallocates a Monitor (cleanupmon()'s free(mon)).
    procedure Free_Monitor is new Ada.Unchecked_Deallocation (Monitor, Monitor_Access);
 
-   --  ISVISIBLE(C) / WIDTH(X) / HEIGHT(X) macros from dwm.c, used
-   --  throughout Dwm_Clients, Dwm_Layouts, Dwm_Actions and Dwm_Events.
+   --  True if C has any tag in common with its monitor's currently
+   --  viewed tag set (dwm.c's ISVISIBLE(C) macro).
    function Is_Visible (C : Client_Access) return Boolean is
      ((C.Tags and C.Mon.Tag_Set (C.Mon.Sel_Tags)) /= 0);
 
+   --  Outer window width including both borders (dwm.c's WIDTH(X)).
    function Width (C : Client_Access) return Integer is (C.W + 2 * C.Bw);
+
+   --  Outer window height including both borders (dwm.c's HEIGHT(X)).
    function Height (C : Client_Access) return Integer is (C.H + 2 * C.Bw);
 
 end Dwm_Types;

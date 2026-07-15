@@ -7,8 +7,13 @@ with Xlib_Thin;
 --  depends on, via focus() -> drawbars()) can use it without a cycle.
 package Dwm_Xutil is
 
+   --  Reads Win's Prop property as a single Atom value, or None (0) if
+   --  it is absent or not format-32 (getatomprop()); used to read
+   --  _NET_WM_STATE / _NET_WM_WINDOW_TYPE.
    function Get_Atom_Prop (Win : Xlib_Thin.Window; Prop : Xlib_Thin.Atom) return Xlib_Thin.Atom;
 
+   --  Sets X, Y to the pointer's current root-relative position and
+   --  returns True on success (getrootptr()).
    function Get_Root_Ptr (X, Y : out Integer) return Boolean;
 
    --  Returns -1 if the WM_STATE property is absent (matches getstate()
