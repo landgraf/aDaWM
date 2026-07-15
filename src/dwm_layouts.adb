@@ -6,69 +6,80 @@ package body Dwm_Layouts is
 
    use type Dwm_Types.Client_Access;
 
-   procedure Monocle (M : Dwm_Types.Monitor_Access) is
-      N : Natural := 0;
-      C : Dwm_Types.Client_Access;
+   procedure Monocle (Monitor : Dwm_Types.Monitor_Access) is
+      Visible_Count : Natural := 0;
+      Client : Dwm_Types.Client_Access;
    begin
-      C := M.Clients;
-      while C /= null loop
-         if Dwm_Types.Is_Visible (C) then
-            N := N + 1;
+      Client := Monitor.Clients;
+      while Client /= null loop
+         if Dwm_Types.Is_Visible (Client) then
+            Visible_Count := Visible_Count + 1;
          end if;
-         C := C.Next;
+         Client := Client.Next;
       end loop;
-      if N > 0 then
-         M.Lt_Symbol := Dwm_Types.Lt_Symbol_Strings.To_Bounded_String
-           ("[" & Ada.Strings.Fixed.Trim (Natural'Image (N), Ada.Strings.Left) & "]");
+      if Visible_Count > 0 then
+         Monitor.Lt_Symbol := Dwm_Types.Lt_Symbol_Strings.To_Bounded_String
+           ("[" & Ada.Strings.Fixed.Trim (Natural'Image (Visible_Count), Ada.Strings.Left) & "]");
       end if;
-      C := Dwm_Clients.Next_Tiled (M.Clients);
-      while C /= null loop
-         Dwm_Clients.Resize (C, M.Wx, M.Wy, M.Ww - 2 * C.Bw, M.Wh - 2 * C.Bw, False);
-         C := Dwm_Clients.Next_Tiled (C.Next);
+      Client := Dwm_Clients.Next_Tiled (Monitor.Clients);
+      while Client /= null loop
+         Dwm_Clients.Resize
+           (Client, Monitor.Work_X, Monitor.Work_Y,
+            Monitor.Work_Width - 2 * Client.Border_Width, Monitor.Work_Height - 2 * Client.Border_Width, False);
+         Client := Dwm_Clients.Next_Tiled (Client.Next);
       end loop;
    end Monocle;
 
-   procedure Tile (M : Dwm_Types.Monitor_Access) is
-      N  : Integer := 0;
-      C  : Dwm_Types.Client_Access;
-      Mw : Integer;
-      My, Ty : Integer := 0;
-      H  : Integer;
-      I  : Integer := 0;
+   procedure Tile (Monitor : Dwm_Types.Monitor_Access) is
+      Client_Count : Integer := 0;
+      Client       : Dwm_Types.Client_Access;
+      Master_Width : Integer;
+      Master_Y, Tile_Y : Integer := 0;
+      Client_Height : Integer;
+      Idx : Integer := 0;
    begin
-      C := Dwm_Clients.Next_Tiled (M.Clients);
-      while C /= null loop
-         N := N + 1;
-         C := Dwm_Clients.Next_Tiled (C.Next);
+      Client := Dwm_Clients.Next_Tiled (Monitor.Clients);
+      while Client /= null loop
+         Client_Count := Client_Count + 1;
+         Client := Dwm_Clients.Next_Tiled (Client.Next);
       end loop;
-      if N = 0 then
+      if Client_Count = 0 then
          return;
       end if;
 
-      if N > M.Nmaster then
-         Mw := (if M.Nmaster /= 0 then Integer (Float (M.Ww) * M.Mfact) else 0);
+      if Client_Count > Monitor.Num_Master then
+         Master_Width :=
+           (if Monitor.Num_Master /= 0
+            then Integer (Float (Monitor.Work_Width) * Monitor.Master_Factor)
+            else 0);
       else
-         Mw := M.Ww;
+         Master_Width := Monitor.Work_Width;
       end if;
 
-      C := Dwm_Clients.Next_Tiled (M.Clients);
-      I := 0;
-      while C /= null loop
-         if I < M.Nmaster then
-            H := (M.Wh - My) / (Util.Min_Integer (N, M.Nmaster) - I);
-            Dwm_Clients.Resize (C, M.Wx, M.Wy + My, Mw - 2 * C.Bw, H - 2 * C.Bw, False);
-            if My + Dwm_Types.Height (C) < M.Wh then
-               My := My + Dwm_Types.Height (C);
+      Client := Dwm_Clients.Next_Tiled (Monitor.Clients);
+      Idx := 0;
+      while Client /= null loop
+         if Idx < Monitor.Num_Master then
+            Client_Height :=
+              (Monitor.Work_Height - Master_Y) / (Util.Min_Integer (Client_Count, Monitor.Num_Master) - Idx);
+            Dwm_Clients.Resize
+              (Client, Monitor.Work_X, Monitor.Work_Y + Master_Y,
+               Master_Width - 2 * Client.Border_Width, Client_Height - 2 * Client.Border_Width, False);
+            if Master_Y + Dwm_Types.Outer_Height (Client) < Monitor.Work_Height then
+               Master_Y := Master_Y + Dwm_Types.Outer_Height (Client);
             end if;
          else
-            H := (M.Wh - Ty) / (N - I);
-            Dwm_Clients.Resize (C, M.Wx + Mw, M.Wy + Ty, M.Ww - Mw - 2 * C.Bw, H - 2 * C.Bw, False);
-            if Ty + Dwm_Types.Height (C) < M.Wh then
-               Ty := Ty + Dwm_Types.Height (C);
+            Client_Height := (Monitor.Work_Height - Tile_Y) / (Client_Count - Idx);
+            Dwm_Clients.Resize
+              (Client, Monitor.Work_X + Master_Width, Monitor.Work_Y + Tile_Y,
+               Monitor.Work_Width - Master_Width - 2 * Client.Border_Width,
+               Client_Height - 2 * Client.Border_Width, False);
+            if Tile_Y + Dwm_Types.Outer_Height (Client) < Monitor.Work_Height then
+               Tile_Y := Tile_Y + Dwm_Types.Outer_Height (Client);
             end if;
          end if;
-         I := I + 1;
-         C := Dwm_Clients.Next_Tiled (C.Next);
+         Idx := Idx + 1;
+         Client := Dwm_Clients.Next_Tiled (Client.Next);
       end loop;
    end Tile;
 

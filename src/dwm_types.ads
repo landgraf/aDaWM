@@ -30,7 +30,7 @@ package Dwm_Types is
    type Color_Scheme_Access is access all Color_Scheme;
 
    --  Three color-name strings (fg, bg, border), e.g. "#222222"; the
-   --  input Drw.Scm_Create resolves into a Color_Scheme.
+   --  input Drw.Scheme_Create resolves into a Color_Scheme.
    type Color_Name_Triple is array (Col_Kind) of access constant String;
 
    type Click_Kind is
@@ -50,16 +50,17 @@ package Dwm_Types is
    type Command_Access is access constant Command;
 
    type Arg is record
-      I   : Integer := 0;
-      Ui  : Tag_Mask := 0;
-      F   : Float := 0.0;
-      Cmd : Command_Access := null;
-      Lt  : Layout_Const_Access := null;
+      Int_Value   : Integer := 0;
+      Uint_Value  : Tag_Mask := 0;
+      Float_Value : Float := 0.0;
+      Command     : Command_Access := null;
+      Layout      : Layout_Const_Access := null;
    end record;
 
-   No_Arg : constant Arg := (I => 0, Ui => 0, F => 0.0, Cmd => null, Lt => null);
+   No_Arg : constant Arg :=
+     (Int_Value => 0, Uint_Value => 0, Float_Value => 0.0, Command => null, Layout => null);
 
-   type Key_Func is access procedure (A : Arg);
+   type Key_Func is access procedure (Argument : Arg);
 
    type Key is record
       Modifier : Xlib_Thin.C_UInt;
@@ -82,7 +83,7 @@ package Dwm_Types is
    type Button_Array is array (Positive range <>) of Button_Binding;
    type Button_Array_Access is access constant Button_Array;
 
-   type Arrange_Func is access procedure (M : Monitor_Access);
+   type Arrange_Func is access procedure (Monitor : Monitor_Access);
 
    type Layout is record
       Symbol  : access constant String;
@@ -107,17 +108,17 @@ package Dwm_Types is
    --  X event handler signature (dwm.c's `void (*)(XEvent *)`), shared
    --  by the handlers scattered across Dwm_Clients/Dwm_Monitors/
    --  Dwm_Events and Dwm_Events.Handler's dispatch table.
-   type Event_Handler is access procedure (Ev : access Xlib_Thin.XEvent);
+   type Event_Handler is access procedure (Event : access Xlib_Thin.XEvent);
 
    type Client is record
       Name        : Client_Name_Strings.Bounded_String := Client_Name_Strings.Null_Bounded_String;
-      Mina, Maxa  : Float := 0.0;
-      X, Y, W, H  : Integer := 0;
-      Oldx, Oldy, Oldw, Oldh : Integer := 0;
-      Basew, Baseh, Incw, Inch : Integer := 0;
-      Maxw, Maxh, Minw, Minh  : Integer := 0;
+      Min_Aspect, Max_Aspect : Float := 0.0;
+      Pos_X, Pos_Y, Width, Height : Integer := 0;
+      Old_X, Old_Y, Old_Width, Old_Height : Integer := 0;
+      Base_Width, Base_Height, Inc_Width, Inc_Height : Integer := 0;
+      Max_Width, Max_Height, Min_Width, Min_Height : Integer := 0;
       Hints_Valid  : Boolean := False;
-      Bw, Oldbw   : Integer := 0;
+      Border_Width, Old_Border_Width : Integer := 0;
       Tags        : Tag_Mask := 0;
       Is_Fixed     : Boolean := False;
       Is_Floating  : Boolean := False;
@@ -126,32 +127,32 @@ package Dwm_Types is
       Old_State    : Boolean := False;
       Is_Full_Screen : Boolean := False;
       Next        : Client_Access := null;
-      Snext       : Client_Access := null;
-      Mon         : Monitor_Access := null;
-      Win         : Xlib_Thin.Window := Xlib_Thin.None;
+      Stack_Next  : Client_Access := null;
+      Monitor     : Monitor_Access := null;
+      Window      : Xlib_Thin.Window := Xlib_Thin.None;
    end record;
 
    type Tagset_Array is array (0 .. 1) of Tag_Mask;
 
    type Monitor is record
       Lt_Symbol    : Lt_Symbol_Strings.Bounded_String := Lt_Symbol_Strings.Null_Bounded_String;
-      Mfact       : Float := 0.0;
-      Nmaster     : Integer := 0;
-      Num         : Integer := 0;
-      By          : Integer := 0;
-      Mx, My, Mw, Mh : Integer := 0;
-      Wx, Wy, Ww, Wh : Integer := 0;
+      Master_Factor : Float := 0.0;
+      Num_Master   : Integer := 0;
+      Number       : Integer := 0;
+      Bar_Y        : Integer := 0;
+      Screen_X, Screen_Y, Screen_Width, Screen_Height : Integer := 0;
+      Work_X, Work_Y, Work_Width, Work_Height : Integer := 0;
       Sel_Tags     : Natural range 0 .. 1 := 0;
       Sel_Lt       : Natural range 0 .. 1 := 0;
       Tag_Set      : Tagset_Array := (others => 1);
       Show_Bar     : Boolean := True;
       Top_Bar      : Boolean := True;
-      Clients     : Client_Access := null;
-      Sel         : Client_Access := null;
-      Stack       : Client_Access := null;
-      Next        : Monitor_Access := null;
-      Bar_Win      : Xlib_Thin.Window := Xlib_Thin.None;
-      Lt          : Layout_Pair := (others => null);
+      Clients      : Client_Access := null;
+      Selected_Client : Client_Access := null;
+      Stack        : Client_Access := null;
+      Next         : Monitor_Access := null;
+      Bar_Window   : Xlib_Thin.Window := Xlib_Thin.None;
+      Layout       : Layout_Pair := (others => null);
    end record;
 
    --  Deallocates a Client (unmanage()'s free(c)); the access value is
@@ -161,15 +162,17 @@ package Dwm_Types is
    --  Deallocates a Monitor (cleanupmon()'s free(mon)).
    procedure Free_Monitor is new Ada.Unchecked_Deallocation (Monitor, Monitor_Access);
 
-   --  True if C has any tag in common with its monitor's currently
+   --  True if Client has any tag in common with its monitor's currently
    --  viewed tag set (dwm.c's ISVISIBLE(C) macro).
-   function Is_Visible (C : Client_Access) return Boolean is
-     ((C.Tags and C.Mon.Tag_Set (C.Mon.Sel_Tags)) /= 0);
+   function Is_Visible (Client : Client_Access) return Boolean is
+     ((Client.Tags and Client.Monitor.Tag_Set (Client.Monitor.Sel_Tags)) /= 0);
 
    --  Outer window width including both borders (dwm.c's WIDTH(X)).
-   function Width (C : Client_Access) return Integer is (C.W + 2 * C.Bw);
+   function Outer_Width (Client : Client_Access) return Integer is
+     (Client.Width + 2 * Client.Border_Width);
 
    --  Outer window height including both borders (dwm.c's HEIGHT(X)).
-   function Height (C : Client_Access) return Integer is (C.H + 2 * C.Bw);
+   function Outer_Height (Client : Client_Access) return Integer is
+     (Client.Height + 2 * Client.Border_Width);
 
 end Dwm_Types;

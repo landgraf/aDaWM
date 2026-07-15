@@ -5,10 +5,10 @@ with Dwm_Types;
 --  (pure monitor-geometry bookkeeping, no window/drawing calls).
 package Dwm_Bar is
 
-   --  Redraws M's bar: tags (with occupied/urgent indicator boxes),
-   --  layout symbol, and either the selected client's title or (on
-   --  the selected monitor) the status text (drawbar()).
-   procedure Draw_Bar (M : Dwm_Types.Monitor_Access);
+   --  Redraws Monitor's bar: tags (with occupied/urgent indicator
+   --  boxes), layout symbol, and either the selected client's title
+   --  or (on the selected monitor) the status text (drawbar()).
+   procedure Draw_Bar (Monitor : Dwm_Types.Monitor_Access);
 
    --  Calls Draw_Bar for every monitor (drawbars()).
    procedure Draw_Bars;

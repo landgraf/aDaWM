@@ -6,11 +6,11 @@
 --  so callers just use "new" directly.
 package Util is
 
-   --  Returns the larger of A and B (dwm.c's MAX macro).
-   function Max_Integer (A, B : Integer) return Integer is (if A > B then A else B);
+   --  Returns the larger of Left and Right (dwm.c's MAX macro).
+   function Max_Integer (Left, Right : Integer) return Integer is (if Left > Right then Left else Right);
 
-   --  Returns the smaller of A and B (dwm.c's MIN macro).
-   function Min_Integer (A, B : Integer) return Integer is (if A < B then A else B);
+   --  Returns the smaller of Left and Right (dwm.c's MIN macro).
+   function Min_Integer (Left, Right : Integer) return Integer is (if Left < Right then Left else Right);
 
    --  Prints Msg to standard error and terminates the process with a
    --  failure status (equivalent to C's die(), which always exit(1)s).

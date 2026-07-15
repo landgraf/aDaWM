@@ -19,8 +19,9 @@ package Config is
    Show_Bar   : constant Boolean := True;
    Top_Bar    : constant Boolean := True;
 
-   Font_Name : aliased constant String := "monospace:size=10";
-   Fonts : constant Dwm_Types.Command := (1 => Font_Name'Access);
+   Font_Name       : aliased constant String := "Hack Nerd Font Mono:size=16";
+   Font_Name_Emoji : aliased constant String := "Noto Color Emoji:size=16";
+   Fonts : constant Dwm_Types.Command := (Font_Name'Access, Font_Name_Emoji'Access);
 
    Col_Gray1 : aliased constant String := "#222222";
    Col_Gray2 : aliased constant String := "#444444";
@@ -68,8 +69,8 @@ package Config is
        Tags => 256, Is_Floating => False, Monitor => -1));
 
    --  layout(s)
-   Mfact         : constant Float := 0.55;
-   Nmaster       : constant := 1;
+   Master_Factor         : constant Float := 0.55;
+   Num_Master       : constant := 1;
    Resize_Hints   : constant Boolean := True;
    Lock_Full_Screen : constant Boolean := True;
    Refresh_Rate   : constant := 120;

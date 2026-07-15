@@ -20,72 +20,72 @@ package body Dwm_Xutil is
    function To_Chars_Ptr is new Ada.Unchecked_Conversion
      (System.Address, Interfaces.C.Strings.chars_ptr);
 
-   function Get_Atom_Prop (Win : Xlib_Thin.Window; Prop : Xlib_Thin.Atom) return Xlib_Thin.Atom is
-      Da     : aliased Xlib_Thin.Atom;
+   function Get_Atom_Prop (Window : Xlib_Thin.Window; Prop : Xlib_Thin.Atom) return Xlib_Thin.Atom is
+      Actual_Type : aliased Xlib_Thin.Atom;
       Format : aliased Xlib_Thin.C_Int;
-      Nitems, Dl : aliased Xlib_Thin.C_ULong;
-      P      : aliased System.Address := System.Null_Address;
+      Nitems, Bytes_After : aliased Xlib_Thin.C_ULong;
+      Prop_Value : aliased System.Address := System.Null_Address;
       Status : Xlib_Thin.C_Int;
       Result : Xlib_Thin.Atom := Xlib_Thin.None;
       Ignore : Xlib_Thin.C_Int;
    begin
       Status := Xlib_Thin.XGetWindowProperty
-        (Dwm_State.Dpy, Win, Prop, 0, 8, 0, Xlib_Thin.XA_ATOM,
-         Da'Access, Format'Access, Nitems'Access, Dl'Access, P'Access);
-      if Status = Xlib_Thin.Success and then P /= System.Null_Address then
+        (Dwm_State.Display, Window, Prop, 0, 8, 0, Xlib_Thin.XA_ATOM,
+         Actual_Type'Access, Format'Access, Nitems'Access, Bytes_After'Access, Prop_Value'Access);
+      if Status = Xlib_Thin.Success and then Prop_Value /= System.Null_Address then
          if Nitems > 0 and then Format = 32 then
-            Result := Xlib_Thin.Atom (To_C_Ulong_Access (P).all);
+            Result := Xlib_Thin.Atom (To_C_Ulong_Access (Prop_Value).all);
          end if;
-         Ignore := Xlib_Thin.XFree (P);
+         Ignore := Xlib_Thin.XFree (Prop_Value);
       end if;
       return Result;
    end Get_Atom_Prop;
 
-   function Get_Root_Ptr (X, Y : out Integer) return Boolean is
+   function Get_Root_Ptr (Pos_X, Pos_Y : out Integer) return Boolean is
       Dummy_Win : aliased Xlib_Thin.Window;
-      Di1, Di2  : aliased Xlib_Thin.C_Int;
-      Dui       : aliased Xlib_Thin.C_UInt;
-      Rx, Ry    : aliased Xlib_Thin.C_Int;
-      Ok        : Xlib_Thin.C_Int;
+      Dummy_Int1, Dummy_Int2 : aliased Xlib_Thin.C_Int;
+      Dummy_Mask : aliased Xlib_Thin.C_UInt;
+      Root_X, Root_Y : aliased Xlib_Thin.C_Int;
+      Ok : Xlib_Thin.C_Int;
    begin
       Ok := Xlib_Thin.XQueryPointer
-        (Dwm_State.Dpy, Dwm_State.Root, Dummy_Win'Access, Dummy_Win'Access,
-         Rx'Access, Ry'Access, Di1'Access, Di2'Access, Dui'Access);
-      X := Integer (Rx);
-      Y := Integer (Ry);
+        (Dwm_State.Display, Dwm_State.Root, Dummy_Win'Access, Dummy_Win'Access,
+         Root_X'Access, Root_Y'Access, Dummy_Int1'Access, Dummy_Int2'Access, Dummy_Mask'Access);
+      Pos_X := Integer (Root_X);
+      Pos_Y := Integer (Root_Y);
       return Ok /= 0;
    end Get_Root_Ptr;
 
-   function Get_State (Win : Xlib_Thin.Window) return Long_Integer is
+   function Get_State (Window : Xlib_Thin.Window) return Long_Integer is
       Format : aliased Xlib_Thin.C_Int;
-      N, Extra : aliased Xlib_Thin.C_ULong;
-      Real   : aliased Xlib_Thin.Atom;
-      P      : aliased System.Address := System.Null_Address;
+      Nitems, Bytes_After : aliased Xlib_Thin.C_ULong;
+      Actual_Type : aliased Xlib_Thin.Atom;
+      Prop_Value : aliased System.Address := System.Null_Address;
       Result : Long_Integer := -1;
       Status : Xlib_Thin.C_Int;
       Ignore : Xlib_Thin.C_Int;
    begin
       Status := Xlib_Thin.XGetWindowProperty
-        (Dwm_State.Dpy, Win, Dwm_State.Wm_Atom (Dwm_State.WM_State), 0, 2, 0,
-         Dwm_State.Wm_Atom (Dwm_State.WM_State), Real'Access, Format'Access,
-         N'Access, Extra'Access, P'Access);
+        (Dwm_State.Display, Window, Dwm_State.Wm_Atom (Dwm_State.WM_State), 0, 2, 0,
+         Dwm_State.Wm_Atom (Dwm_State.WM_State), Actual_Type'Access, Format'Access,
+         Nitems'Access, Bytes_After'Access, Prop_Value'Access);
       if Status /= Xlib_Thin.Success then
          return -1;
       end if;
-      if N /= 0 and then Format = 32 then
-         Result := Long_Integer (To_C_Ulong_Access (P).all);
+      if Nitems /= 0 and then Format = 32 then
+         Result := Long_Integer (To_C_Ulong_Access (Prop_Value).all);
       end if;
-      if P /= System.Null_Address then
-         Ignore := Xlib_Thin.XFree (P);
+      if Prop_Value /= System.Null_Address then
+         Ignore := Xlib_Thin.XFree (Prop_Value);
       end if;
       return Result;
    end Get_State;
 
-   function Get_Text_Prop (Win : Xlib_Thin.Window; Prop : Xlib_Thin.Atom) return String is
+   function Get_Text_Prop (Window : Xlib_Thin.Window; Prop : Xlib_Thin.Atom) return String is
       Name : aliased Xlib_Thin.XTextProperty;
       Ok   : Xlib_Thin.C_Int;
    begin
-      Ok := Xlib_Thin.XGetTextProperty (Dwm_State.Dpy, Win, Name'Access, Prop);
+      Ok := Xlib_Thin.XGetTextProperty (Dwm_State.Display, Window, Name'Access, Prop);
       if Ok = 0 or else Name.Nitems = 0 then
          return "";
       end if;
@@ -96,28 +96,28 @@ package body Dwm_Xutil is
       begin
          if Name.Encoding = Xlib_Thin.XA_STRING then
             declare
-               S : constant String := Interfaces.C.Strings.Value (To_Chars_Ptr (Name.Value));
+               Str : constant String := Interfaces.C.Strings.Value (To_Chars_Ptr (Name.Value));
             begin
-               Len := Natural'Min (S'Length, 255);
-               Result (1 .. Len) := S (S'First .. S'First + Len - 1);
+               Len := Natural'Min (Str'Length, 255);
+               Result (1 .. Len) := Str (Str'First .. Str'First + Len - 1);
             end;
          else
             declare
                List_Ptr : aliased System.Address := System.Null_Address;
                Count    : aliased Xlib_Thin.C_Int;
-               Rc       : Xlib_Thin.C_Int;
+               Result_Code : Xlib_Thin.C_Int;
             begin
-               Rc := Xlib_Thin.XmbTextPropertyToTextList
-                 (Dwm_State.Dpy, Name'Access, List_Ptr'Access, Count'Access);
-               if Rc >= Xlib_Thin.Success and then Count > 0
+               Result_Code := Xlib_Thin.XmbTextPropertyToTextList
+                 (Dwm_State.Display, Name'Access, List_Ptr'Access, Count'Access);
+               if Result_Code >= Xlib_Thin.Success and then Count > 0
                  and then List_Ptr /= System.Null_Address
                then
                   declare
                      First_Str : constant System.Address := To_Address_Access (List_Ptr).all;
-                     S : constant String := Interfaces.C.Strings.Value (To_Chars_Ptr (First_Str));
+                     Str : constant String := Interfaces.C.Strings.Value (To_Chars_Ptr (First_Str));
                   begin
-                     Len := Natural'Min (S'Length, 255);
-                     Result (1 .. Len) := S (S'First .. S'First + Len - 1);
+                     Len := Natural'Min (Str'Length, 255);
+                     Result (1 .. Len) := Str (Str'First .. Str'First + Len - 1);
                   end;
                   Xlib_Thin.XFreeStringList (List_Ptr);
                end if;
