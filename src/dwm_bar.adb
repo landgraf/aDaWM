@@ -138,7 +138,7 @@ package body Dwm_Bar is
       Attrs : aliased Xlib_Thin.XSetWindowAttributes;
       Class_Hint : aliased Xlib_Thin.XClassHint;
       Monitor : Dwm_Types.Monitor_Access := Dwm_State.Get_Monitors;
-      Class_Name : constant Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String ("dwm");
+      Class_Name : Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String ("dwm");
       Ignore : Xlib_Thin.C_Int;
    begin
       Attrs.Override_Redirect := 1;
@@ -163,6 +163,7 @@ package body Dwm_Bar is
          end if;
          Monitor := Monitor.Next;
       end loop;
+      Interfaces.C.Strings.Free (Class_Name);
    end Update_Bars;
 
    procedure Update_Status is

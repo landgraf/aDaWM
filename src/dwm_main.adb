@@ -138,7 +138,7 @@ package body Dwm_Main is
 
    procedure Main is
       Ignore : Xlib_Thin.C_Int;
-      Locale_Ptr : constant Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String ("");
+      Locale_Ptr : Interfaces.C.Strings.chars_ptr := Interfaces.C.Strings.New_String ("");
       Locale_Result : Interfaces.C.Strings.chars_ptr;
    begin
       if Ada.Command_Line.Argument_Count = 1 and then Ada.Command_Line.Argument (1) = "-v" then
@@ -148,6 +148,7 @@ package body Dwm_Main is
       end if;
 
       Locale_Result := C_Setlocale (LC_CTYPE, Locale_Ptr);
+      Interfaces.C.Strings.Free (Locale_Ptr);
       if Locale_Result = Interfaces.C.Strings.Null_Ptr or else Xlib_Thin.XSupportsLocale = 0 then
          Ada.Text_IO.Put_Line (Ada.Text_IO.Standard_Error, "warning: no locale support");
       end if;
