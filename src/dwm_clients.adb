@@ -21,8 +21,6 @@ package body Dwm_Clients is
    use type Xlib_Thin.KeyCode;
    use type System.Address;
    use type Interfaces.C.Strings.chars_ptr;
-   use type Dwm_Types.Client_Access;
-   use type Dwm_Types.Monitor_Access;
    use type Dwm_Types.Tag_Mask;
    use type Dwm_Types.Arrange_Func;
    use type Dwm_Types.Click_Kind;

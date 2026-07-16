@@ -27,6 +27,19 @@ package body Dwm_Actions is
 
    Tagmask : constant Dwm_Types.Tag_Mask := 2 ** Config.Tags'Length - 1;
 
+   --  Returns the 1-based tag number of Mask's lowest set bit (dwm.c's
+   --  "for (i = 0; !(mask & 1 << i); i++)" bit-scan in view()/
+   --  toggleview()), used to turn a single-tag bit mask into a
+   --  Per_Tag_State array index. Every call site passes Mask already
+   --  ANDed with Tagmask, which is what makes the precondition
+   --  provable at each of them: such a value can never have a bit set
+   --  past position Config.Tags'Length - 1, safely inside Tag_Slot's
+   --  range once shifted up by one.
+   function Tag_Index_From_Mask (Mask : in Dwm_Types.Tag_Mask) return Dwm_Types.Tag_Slot
+     with
+       Pre  => Mask /= 0 and then Mask <= Tagmask,
+       Post => Tag_Index_From_Mask'Result in 1 .. Dwm_Types.Max_Tags;
+
    --------------------------------------------------------------------
    --  fork/exec helpers for Spawn                                    --
    --------------------------------------------------------------------
@@ -416,6 +429,16 @@ package body Dwm_Actions is
       end if;
    end Tag;
 
+   function Tag_Index_From_Mask (Mask : in Dwm_Types.Tag_Mask) return Dwm_Types.Tag_Slot is
+   begin
+      for Idx in 0 .. Dwm_Types.Max_Tags - 1 loop
+         if (Mask and 2 ** Idx) /= 0 then
+            return Idx + 1;
+         end if;
+      end loop;
+      raise Program_Error with "Tag_Index_From_Mask: no bit set within Tagmask";
+   end Tag_Index_From_Mask;
+
    procedure Tag_Mon (Argument : in Dwm_Types.Arg) is
    begin
       if Dwm_State.Get_Selected_Monitor.Selected_Client = null or else Dwm_State.Get_Monitors.Next = null then
@@ -500,12 +523,7 @@ package body Dwm_Actions is
            and then (New_Tag_Set and 2 ** (Monitor.Per_Tag.Cur_Tag - 1)) = 0
          then
             Monitor.Per_Tag.Prev_Tag := Monitor.Per_Tag.Cur_Tag;
-            for Idx in 0 .. Dwm_Types.Max_Tags - 1 loop
-               if (New_Tag_Set and 2 ** Idx) /= 0 then
-                  Monitor.Per_Tag.Cur_Tag := Idx + 1;
-                  exit;
-               end if;
-            end loop;
+            Monitor.Per_Tag.Cur_Tag := Tag_Index_From_Mask (New_Tag_Set);
          end if;
 
          Monitor.Num_Master := Monitor.Per_Tag.Num_Masters (Monitor.Per_Tag.Cur_Tag);
@@ -539,12 +557,7 @@ package body Dwm_Actions is
          if Argument.Uint_Value = not Dwm_Types.Tag_Mask'(0) then
             Monitor.Per_Tag.Cur_Tag := 0;
          else
-            for Idx in 0 .. Dwm_Types.Max_Tags - 1 loop
-               if (Argument.Uint_Value and 2 ** Idx) /= 0 then
-                  Monitor.Per_Tag.Cur_Tag := Idx + 1;
-                  exit;
-               end if;
-            end loop;
+            Monitor.Per_Tag.Cur_Tag := Tag_Index_From_Mask (Argument.Uint_Value and Tagmask);
          end if;
       else
          Tmp_Tag := Monitor.Per_Tag.Prev_Tag;

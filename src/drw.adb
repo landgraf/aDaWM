@@ -36,9 +36,18 @@ package body Drw is
    --  Decodes the UTF-8 sequence starting at S (Pos), matching
    --  utf8decode(): returns the byte length consumed, the codepoint
    --  (UTF_Invalid on error), and whether the sequence was invalid.
+   --  Length always stays within the bytes actually available in S,
+   --  so S (Pos .. Pos + Length - 1) is always a safe slice regardless
+   --  of whether decoding succeeded or the sequence ran off the end of
+   --  the string.
    procedure Utf8_Decode
      (S : in String; Pos : in Positive; Codepoint : out Codepoint_Type;
-      Length : out Natural; Err : out Boolean);
+      Length : out Natural; Err : out Boolean)
+     with
+       Pre  => Pos in S'Range,
+       Post => Length in 1 .. 4
+         and then Pos + Length - 1 <= S'Last
+         and then (if not Err then Codepoint <= 16#10FFFF#);
 
    --  Implementation detail of Fontset_Create; library users should use
    --  Fontset_Create instead (mirrors xfont_create()'s C comment).
@@ -318,6 +327,15 @@ package body Drw is
       Overflow : Boolean := False;
       Ignore   : Xlib_Thin.C_Int;
       Text_Pos : Positive := Txt'First;
+      --  Carries a forced "the glyph exists" flag from one Outer_Loop pass
+      --  into the next, mirroring drw_text()'s function-scope `charexists`
+      --  quirk: after a fallback-font search (found or not), the codepoint
+      --  must be consumed on the very next pass rather than re-checked for
+      --  real, since a real check would find no font has the glyph and spin
+      --  forever. Set True right before Usedfont is (re)assigned in the
+      --  "no more already-loaded font matches" branch below; consumed (and
+      --  cleared) by the first font check of the next Inner_Loop pass.
+      Force_Match : Boolean := False;
    begin
       if Drw_Ctx = null or else (Render and then (Drw_Ctx.Scheme = null or else Width = 0))
         or else Txt'Length = 0 or else Drw_Ctx.Fonts = null
@@ -374,7 +392,8 @@ package body Drw is
             Inner_Loop :
             while Text_Pos <= Txt'Last loop
                Utf8_Decode (Txt, Text_Pos, Codepoint, Char_Len, Err);
-               Charexists := False;
+               Charexists := Force_Match;
+               Force_Match := False;
                Curfont := Drw_Ctx.Fonts;
                while Curfont /= null loop
                   if not Charexists then
@@ -461,8 +480,13 @@ package body Drw is
             exit Outer_Loop when Text_Pos > Txt'Last or else Overflow;
 
             if Nextfont /= null then
+               Force_Match := False;
                Usedfont := Nextfont;
             else
+               --  Regardless of whether or not a fallback font is found
+               --  below, the character must be drawn on the next pass
+               --  (drw_text()'s "charexists = 1;").
+               Force_Match := True;
                declare
                   Hash : Interfaces.Unsigned_32;
                   H0, H1 : Natural;
@@ -522,6 +546,22 @@ package body Drw is
                               end if;
                               Usedfont := Drw_Ctx.Fonts;
                            end if;
+                        else
+                           --  No fallback font matched at all (not even a
+                           --  generic substitute): cache the miss just
+                           --  like the "matched but the glyph still isn't
+                           --  there" case above, so this codepoint isn't
+                           --  re-attempted (an expensive FcFontMatch call)
+                           --  on every redraw. Without this, a glyph
+                           --  nothing on the system can render would spin
+                           --  the outer loop forever, since neither
+                           --  Text_Pos nor Usedfont would ever change.
+                           if Nomatches (H0) /= 0 then
+                              Nomatches (H1) := Codepoint;
+                           else
+                              Nomatches (H0) := Codepoint;
+                           end if;
+                           Usedfont := Drw_Ctx.Fonts;
                         end if;
                      end;
                   else

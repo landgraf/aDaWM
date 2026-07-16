@@ -15,6 +15,9 @@ with Xlib_Thin;
 --  dependency one-directional (Dwm_Layouts -> Dwm_Clients).
 package Dwm_Clients is
 
+   use type Dwm_Types.Client_Access;
+   use type Dwm_Types.Monitor_Access;
+
    --  Sets Client's floating flag, tags and monitor from the first
    --  entry in Config.Rules whose class/instance/title all match (or
    --  leaves the tags at the target monitor's current view if no rule
@@ -33,9 +36,17 @@ package Dwm_Clients is
    --  the whole screen, if Interact) and, unless Client is
    --  unconstrained-resize-eligible, rounds Width/Height to Client's
    --  WM size-hint increments/aspect ratio/min/max (applysizehints()).
+   --  Every managed Client always has a Monitor (Manage sets it before
+   --  the Client is reachable from anywhere else), so the precondition
+   --  holds at every real call site; Width/Height are unconditionally
+   --  floored to at least 1 pixel internally before anything else, so
+   --  the postcondition holds regardless of what was passed in.
    function Apply_Size_Hints
      (Client : in Dwm_Types.Client_Access; Pos_X, Pos_Y, Width, Height : in Integer;
-      Interact : in Boolean) return Size_Hint_Result;
+      Interact : in Boolean) return Size_Hint_Result
+     with
+       Pre  => Client /= null and then Client.Monitor /= null,
+       Post => Apply_Size_Hints'Result.Width >= 1 and then Apply_Size_Hints'Result.Height >= 1;
 
    --  Re-tiles Monitor (or every monitor, if Monitor is null): hides/
    --  shows clients for the current tag view via Show_Hide, then

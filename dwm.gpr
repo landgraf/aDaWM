@@ -21,9 +21,16 @@ project Dwm is
       --  overrides Alire's default "no explicit in mode" check: every
       --  parameter's mode is written explicitly here on purpose, so
       --  that mode is always visible at the declaration instead of
-      --  left implicit for "in".
+      --  left implicit for "in". -gnata enables the Pre/Post contracts
+      --  on the trickier subprograms (Apply_Size_Hints, Utf8_Decode,
+      --  Tag_Index_From_Mask): every precondition in this codebase is
+      --  written to hold by construction at each call site, so a
+      --  violation means a real bug, not a reachable user-triggered
+      --  edge case -- worth crashing loudly on during development and
+      --  testing rather than silently continuing past a corrupted
+      --  invariant.
       for Default_Switches ("Ada") use Dwm_Config.Ada_Compiler_Switches &
-        ("-gnatyM120", "-gnatyd", "-gnatyo", "-gnatys", "-gnaty-I", "-gnatwa", "-gnatwe");
+        ("-gnatyM120", "-gnatyd", "-gnatyo", "-gnatys", "-gnaty-I", "-gnatwa", "-gnatwe", "-gnata");
    end Compiler;
 
    package Binder is
